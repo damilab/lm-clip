@@ -163,9 +163,9 @@ def save_checkpoint(epoch, model_state_dict, optimizer, train_loss_mean, valid_l
         },
         path,
     )
-    print("Saved {path}!")
+    print(f"Saved {path}!")
 
-def train(CFG):
+def train(CFG, run_name):
     model, image_preprocessor = clip.load(CFG.model_name, device=CFG.device, jit=False)
     model = model.float()
 
@@ -288,22 +288,10 @@ def train(CFG):
         raise ValueError("Only AdamW, Adam and SGD are supported as optimizers")
 
     start_epoch = 0
-    run_name = None
     best_mAP = 0.0
     best_mAP_tail = 0.0
 
     # Load from checkpoint to continue training
-    run_name_parts = (
-        [CFG.dataset, CFG.model_name.replace("/", "")]
-        + CFG.loss_function
-        + [
-            "aslmul" + str(CFG.asl_mul),
-            "ls" + str(CFG.label_smoothing),
-            "lw" + str(CFG.use_weighted_loss) + str(CFG.sample_weights_power),
-            "sw" + str(CFG.use_sample_weights) + str(CFG.sample_weights_power),
-        ]
-    )
-    run_name = "_".join(run_name_parts)
     print(f"Run Name: {run_name}")
 
     #  Check if folder exists
@@ -437,9 +425,11 @@ if __name__ == "__main__":
     if args.config is None:
         raise ValueError("Please provide a config .py file.")
 
+    run_name = args.config.split("/")[-1].replace(".py", "")
+
     spec = importlib.util.spec_from_file_location("config_module", args.config)
     config_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config_module)
     CFG = config_module.CFG
 
-    train(CFG)
+    train(CFG, run_name)
