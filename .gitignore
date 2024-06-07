@@ -1,0 +1,6 @@
+datasets/coco_mlt/images
+datasets/voc_mlt/VOCdevkit
+datasets/**/*.tar
+datasets/**/*.zip
+__pycache__
+runs
