@@ -45,17 +45,37 @@ This will download the required images.
 
 ## Running
 
-To train TailCLIP, run `train.py` with a `config` argument pointing to a config .py file.
+### Training
+To train TailCLIP, run `train.py` with a `--config` argument pointing to a config .py file.
 We included our hyperparameter configs for VOC-MLT and COCO-MLT with ViT-B/16 and RN-50 image encoder backbones.
 
 ```console
-python train.py --config=configs/config_voc_mlt_rn50.py
-python train.py --config=configs/config_voc_mlt_vitb16.py
-python train.py --config=configs/config_coco_mlt_rn50.py
-python train.py --config=configs/config_coco_mlt_vitb16.py
+python train.py --config=configs/voc_mlt_rn50.py
+python train.py --config=configs/voc_mlt_vitb16.py
+python train.py --config=configs/coco_mlt_rn50.py
+python train.py --config=configs/coco_mlt_vitb16.py
 ```
 TensorBoard events and model checkpoints will be saved to `runs/`.
+Checkpoints `best_valid_mAP.pt`, `best_valid_mAP_tail.pt`, and `newest_train_checkpoint.pt` will be saved by default.
+
+### Testing
+To evaluate a trained model, run `test.py` with a `--config` argument pointing to a config.py file.
+By default, `best_valid_mAP.pt` will be loaded. This can be changed with the `--checkpoint` argument.
+To only load pre-trained CLIP, use `--zeroshot=True`.
+
+```console
+python test.py --config=configs/voc_mlt_rn50.py
+python test.py --config=configs/voc_mlt_vitb16.py
+python test.py --config=configs/coco_mlt_rn50.py
+python test.py --config=configs/coco_mlt_vitb16.py
+
+python test.py --config=configs/voc_mlt_rn50.py --zeroshot=True
+python test.py --config=configs/voc_mlt_vitb16.py --zeroshot=True
+python test.py --config=configs/coco_mlt_rn50.py --zeroshot=True
+python test.py --config=configs/coco_mlt_vitb16.py --zeroshot=True
+```
 
 ## Acknowledgements
 
 We use code from [CLIP](https://github.com/openai/CLIP), [OpenCLIP](https://github.com/mlfoundations/open_clip), [ASL](https://github.com/Alibaba-MIIL/ASL), and [LMPT](https://github.com/richard-peng-xia/LMPT). We thank the authors for releasing their code.
+
