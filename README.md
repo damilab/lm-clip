@@ -9,7 +9,7 @@ The advancement of computer vision has emphasized the importance of multi-label 
 Authors are Christoph Timmermann, Seunghyeon Jung, Miso Kim and Woojin Lee.
 <img src="./architecture.svg" width="100%">
 
-## Python requirements
+## Python environment
 We tested this code with Python 3.12.3, PyTorch 2.3.1, and CUDA 11.8.
 
 A conda environment `tailclip` with all needed packages can be created by running
@@ -54,3 +54,8 @@ python train.py --config=configs/config_voc_mlt_vitb16.py
 python train.py --config=configs/config_coco_mlt_rn50.py
 python train.py --config=configs/config_coco_mlt_vitb16.py
 ```
+TensorBoard events and model checkpoints will be saved to `runs/`.
+
+## Acknowledgements
+
+We use code from [CLIP](https://github.com/openai/CLIP), [OpenCLIP](https://github.com/mlfoundations/open_clip), [ASL](https://github.com/Alibaba-MIIL/ASL), and [LMPT](https://github.com/richard-peng-xia/LMPT). We thank the authors for releasing their code.
