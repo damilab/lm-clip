@@ -414,7 +414,6 @@ def train(CFG, run_name):
 
 
 if __name__ == "__main__":
-    # Gather the config path to import the config
     import argparse
     import importlib.util
 
