@@ -69,6 +69,11 @@ python test.py --config=configs/voc_mlt_vitb16.py
 python test.py --config=configs/coco_mlt_rn50.py
 python test.py --config=configs/coco_mlt_vitb16.py
 
+python test.py --config=configs/voc_mlt_rn50.py --checkpoint=best_valid_mAP_tail.pt
+python test.py --config=configs/voc_mlt_vitb16.py --checkpoint=best_valid_mAP_tail.pt
+python test.py --config=configs/coco_mlt_rn50.py --checkpoint=best_valid_mAP_tail.pt
+python test.py --config=configs/coco_mlt_vitb16.py --checkpoint=best_valid_mAP_tail.pt
+
 python test.py --config=configs/voc_mlt_rn50.py --zeroshot=True
 python test.py --config=configs/voc_mlt_vitb16.py --zeroshot=True
 python test.py --config=configs/coco_mlt_rn50.py --zeroshot=True
