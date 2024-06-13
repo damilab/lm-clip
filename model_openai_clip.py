@@ -475,7 +475,7 @@ class OpenAICLIPModel(nn.Module):
 
         self.loss_functions = []
         for loss_function in config.loss_function:
-            if loss_function == "contrastive_original":
+            if loss_function == "clip":
                 self.loss_functions.append(OriginalCLIPLossWrapper())
             elif loss_function == "siglip":
                 self.loss_functions.append(

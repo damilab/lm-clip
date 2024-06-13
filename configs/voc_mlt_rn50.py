@@ -1,73 +1,63 @@
 import torch
 
-
 class CFG:
-    debug = False
+    # Dataset options: "coco_mlt", "voc_mlt"
+    dataset = "voc_mlt"
+    # Is used for the label embeddings to predict classes. Also used as image captions if use_dataset_train_captions is False
+    class_caption = "a photo of a "
+    # Determines if the dataset natural language captions should be used during training
+    use_dataset_train_captions = True
+
+    # Controls which checkpoints are saved during training each epoch
     save_newest_checkpoint = True
     save_best_mAP_checkpoint = True
     save_best_tail_mAP_checkpoint = True
 
-    dataset = "voc_mlt"
-
-    optimizer = "AdamW"
-    momentum = 0.9
-    batch_size = 32
-    num_workers = 4
-
-    # COCO-LT 1e-6
-    # VOC-LT 1e-6
-    lr = 1e-6
-
-    weight_decay = 0.01
-    factor = 0.8
-    epochs = 500
+    # Controls image input size to the image encoder
+    size = 224
+    # Use device "cuda" by default, if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # device = "cpu"
-
-    # model_name = 'vit_large_patch14_clip_224.openai'
-    # image_embedding = 1024
-    # text_encoder_model = 'bert-base-uncased'
-    # text_embedding = 768
-    # text_tokenizer = 'bert-base-uncased'
-    # max_length = 250
-
-    model_name = "RN50"  # RN50 or ViT-B/16
+    # Determines which pre-trained model to use for the image encoder: "RN50" or "ViT-B/16"
+    model_name = "RN50"
+    # Sets the max token length for the text encoder, CLIP uses 77
     max_length = 77
+    # Batch size for training and validation
+    batch_size = 32
+    # Number of workers for the dataloaders
+    num_workers = 4
+    # Number of epochs to train for, important for learning rate scheduling
+    epochs = 500
 
-    class_caption = "a photo of a "
-    use_dataset_train_captions = True
-
+    # Determines which loss functions are used during training: A combination of "clip", "siglip", "asl"
     loss_function = [
-        "contrastive_original",
+        "clip",
         "asl",
-    ]  # ['contrastive', 'contrastive_original', 'siglip', 'bce', 'asl', 'contrastive_only_image_similarity']
-
+    ]
+    # Sets the λ factor for balancing ASL and CLIP loss functions
     asl_mul = 6.0
 
+    # ASL loss function parameters
     asl_gamma_neg = 4.0
     asl_gamma_pos = 0.0
     asl_clip = 0.05
     asl_eps = 1e-8
 
-    siglip_logit_bias = 0
-
-    # asl_gamma_neg = 4.0
-    # asl_gamma_pos = 0.0
-    # asl_clip = 0.05
-    # asl_eps = 1e-8
-
+    # Configures oversampling of tail classes, s parameter in the paper, sample_weights_power and class_weights_power are set to the same value for simplicity
     use_sample_weights = True
     sample_weights_power = 1.25
 
+    # Configures class weights for the loss function
     use_weighted_loss = True
     class_weights_power = 1.25
 
-    pretrained = True  # for both image encoder and text encoder
-    trainable = True  # for both image encoder and text encoder
-    temperature = 1.0
+    # Label smoothing for ASL loss
+    label_smoothing = 0.1
 
-    prediction_threshold = 0.5
-    label_smoothing = 0.1  # 0.1
-
-    # image size
-    size = 224
+    # Determines which optimizer to use: "AdamW", "Adam", or "SGD"
+    optimizer = "AdamW"
+    # Base learning rate for the optimizer
+    lr = 1e-6
+    # Momentum for the SGD optimizer
+    momentum = 0.9
+    # Weight decay for the optimizer
+    weight_decay = 0.01

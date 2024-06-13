@@ -191,7 +191,7 @@ class COCOMLTDataset(torch.utils.data.Dataset):
                 self.sample_weights[i] += self.class_weights[index]
 
         # Apply weighting exponent
-        self.class_weights = self.class_weights**sample_weights_power
+        self.class_weights = self.class_weights**class_weights_power
         self.sample_weights = self.sample_weights**sample_weights_power
 
         self.class_weights = self.class_weights / torch.max(self.class_weights)
