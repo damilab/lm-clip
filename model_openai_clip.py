@@ -516,7 +516,7 @@ class OpenAICLIPModel(nn.Module):
 
         loss = 0
         for loss_function in self.loss_functions:
-            loss += loss_function(
+            loss = loss + loss_function(
                 image_embeddings=image_embeddings,
                 text_embeddings=text_embeddings,
                 label_embeddings=label_embeddings,
