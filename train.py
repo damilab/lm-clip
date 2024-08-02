@@ -16,6 +16,7 @@ import datasets.coco_mlt as coco_mlt
 import os
 import clip
 
+
 def train_epoch(
     model,
     train_loader,
@@ -150,7 +151,17 @@ def valid_epoch(
 
     return loss_meter.avg, mAP, APs, mAP_head, mAP_middle, mAP_tail, AUROC, AUROCs
 
-def save_checkpoint(epoch, model_state_dict, optimizer, train_loss_mean, valid_loss, best_mAP, best_mAP_tail, path):
+
+def save_checkpoint(
+    epoch,
+    model_state_dict,
+    optimizer,
+    train_loss_mean,
+    valid_loss,
+    best_mAP,
+    best_mAP_tail,
+    path,
+):
     torch.save(
         {
             "epoch": epoch,
@@ -164,6 +175,7 @@ def save_checkpoint(epoch, model_state_dict, optimizer, train_loss_mean, valid_l
         path,
     )
     print(f"Saved {path}!")
+
 
 def train(CFG, run_name):
     model, image_preprocessor = clip.load(CFG.model_name, device=CFG.device, jit=False)
@@ -218,9 +230,7 @@ def train(CFG, run_name):
             use_sample_weights=False,
         )
     else:
-        raise ValueError(
-            "Only voc_mlt and coco_mlt are supported as datasets"
-        )
+        raise ValueError("Only voc_mlt and coco_mlt are supported as datasets")
 
     num_labels_train = train_loader.dataset.num_classes
     num_labels_valid = valid_loader.dataset.num_classes
@@ -361,7 +371,7 @@ def train(CFG, run_name):
             optimizer=optimizer,
             epoch=epoch,
         )
-        
+
         model.eval()
         with torch.no_grad():
             (
@@ -400,15 +410,42 @@ def train(CFG, run_name):
         if valid_mAP > best_mAP:
             best_mAP = valid_mAP
             if CFG.save_best_mAP_checkpoint:
-                save_checkpoint(epoch, model_state_dict, optimizer, train_loss_mean, valid_loss, best_mAP, best_mAP_tail, writer.log_dir + "/best_valid_mAP.pt")
+                save_checkpoint(
+                    epoch,
+                    model_state_dict,
+                    optimizer,
+                    train_loss_mean,
+                    valid_loss,
+                    best_mAP,
+                    best_mAP_tail,
+                    writer.log_dir + "/best_valid_mAP.pt",
+                )
 
         if valid_mAP_tail > best_mAP_tail:
             best_mAP_tail = valid_mAP_tail
             if CFG.save_best_tail_mAP_checkpoint:
-                save_checkpoint(epoch, model_state_dict, optimizer, train_loss_mean, valid_loss, best_mAP, best_mAP_tail, writer.log_dir + "/best_valid_mAP_tail.pt")
+                save_checkpoint(
+                    epoch,
+                    model_state_dict,
+                    optimizer,
+                    train_loss_mean,
+                    valid_loss,
+                    best_mAP,
+                    best_mAP_tail,
+                    writer.log_dir + "/best_valid_mAP_tail.pt",
+                )
 
         if CFG.save_newest_checkpoint:
-            save_checkpoint(epoch, model_state_dict, optimizer, train_loss_mean, valid_loss, best_mAP, best_mAP_tail, writer.log_dir + "/newest_train_checkpoint.pt")
+            save_checkpoint(
+                epoch,
+                model_state_dict,
+                optimizer,
+                train_loss_mean,
+                valid_loss,
+                best_mAP,
+                best_mAP_tail,
+                writer.log_dir + "/newest_train_checkpoint.pt",
+            )
 
         lr_scheduler.step()
 

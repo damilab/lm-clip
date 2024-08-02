@@ -507,8 +507,7 @@ class OpenAICLIPModel(nn.Module):
 
         label_one_hot = batch["label_one_hot"]
 
-        # logit_scale = self.model.logit_scale.exp()
-        logit_scale = 1.0
+        logit_scale = self.model.logit_scale.exp()
         dot_similarity = logit_scale * image_embeddings @ label_embeddings.T
 
         loss = 0
