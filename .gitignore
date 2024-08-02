@@ -4,3 +4,6 @@ datasets/**/*.tar
 datasets/**/*.zip
 __pycache__
 runs
+prompt_images
+
+*.tar

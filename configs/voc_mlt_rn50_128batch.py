@@ -23,11 +23,11 @@ class CFG:
     # Sets the max token length for the text encoder, CLIP uses 77
     max_length = 77
     # Batch size for training and validation
-    batch_size = 32
+    batch_size = 128
     # Number of workers for the dataloaders
     num_workers = 4
     # Number of epochs to train for, important for learning rate scheduling
-    epochs = 50
+    epochs = 500
 
     # Determines which loss functions are used during training: A combination of "clip", "siglip", "asl"
     loss_function = [
