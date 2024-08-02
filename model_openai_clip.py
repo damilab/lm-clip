@@ -496,14 +496,18 @@ class OpenAICLIPModel(nn.Module):
             else:
                 raise ValueError(f"Unknown loss function: {loss_function}")
 
-    def forward(self, batch, label_embeddings, mode):
+    def forward(self, batch, encoded_labels, mode):
         image_embeddings = self.model.encode_image(batch["image"])
         text_embeddings = self.model.encode_text(batch["caption"])
+        label_embeddings = self.model.encode_text(encoded_labels)
 
         image_embeddings = image_embeddings / image_embeddings.norm(
             dim=-1, keepdim=True
         )
         text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
+        label_embeddings = label_embeddings / label_embeddings.norm(
+            dim=-1, keepdim=True
+        )
 
         label_one_hot = batch["label_one_hot"]
 

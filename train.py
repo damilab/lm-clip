@@ -24,13 +24,6 @@ def train_epoch(
     optimizer,
     epoch,
 ):
-    # Calculate text embeddings for the labels
-    with torch.no_grad():
-        label_embeddings = model.model.encode_text(encoded_labels)
-        label_embeddings = label_embeddings / label_embeddings.norm(
-            dim=-1, keepdim=True
-        )
-
     loss_meter = AvgMeter()
 
     gt_labels = []
@@ -42,7 +35,7 @@ def train_epoch(
         batch = {k: v.to(CFG.device) for k, v in batch.items()}
 
         # Calculate train loss
-        loss_mean, preds = model(batch, label_embeddings=label_embeddings, mode="train")
+        loss_mean, preds = model(batch, encoded_labels=encoded_labels, mode="train")
 
         label_one_hot_int = batch["label_one_hot"].to(torch.int64)
 
@@ -110,19 +103,12 @@ def valid_epoch(
     predict_p = []
     sf = nn.Softmax(dim=1)
 
-    # Calculate text embeddings for the labels
-    with torch.no_grad():
-        label_embeddings = model.model.encode_text(encoded_labels)
-        label_embeddings = label_embeddings / label_embeddings.norm(
-            dim=-1, keepdim=True
-        )
-
     tqdm_object = tqdm(valid_loader, total=len(valid_loader))
     for batch in tqdm_object:
         batch = {k: v.to(CFG.device) for k, v in batch.items()}
 
         # Calculate valid loss
-        loss_mean, preds = model(batch, label_embeddings=label_embeddings, mode="valid")
+        loss_mean, preds = model(batch, encoded_labels=encoded_labels, mode="valid")
 
         label_one_hot_int = batch["label_one_hot"].to(torch.int64)
 
