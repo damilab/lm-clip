@@ -316,6 +316,16 @@ def start_training(config, CFG, run_name):
     model = OpenAICLIPModel(
         config=CFG,
         clip_model=model,
+        train_class_weights=(
+            train_loader.dataset.class_weights.to(CFG.device)
+            if CFG.use_weighted_loss
+            else None
+        ),
+        valid_class_weights=(
+            valid_loader.dataset.class_weights.to(CFG.device)
+            if CFG.use_weighted_loss
+            else None
+        ),
         asl_function_train=asl_function_train,
         asl_function_valid=asl_function_valid,
     ).to(CFG.device)

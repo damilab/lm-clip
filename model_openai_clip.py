@@ -256,6 +256,8 @@ class ClipLossMultiLabel(nn.Module):
 
     def __init__(
         self,
+        train_class_weights,
+        valid_class_weights,
         local_loss=False,
         gather_with_grad=False,
         cache_labels=False,
@@ -264,6 +266,9 @@ class ClipLossMultiLabel(nn.Module):
         use_horovod=False,
     ):
         super().__init__()
+        self.train_class_weights = train_class_weights
+        self.valid_class_weights = valid_class_weights
+
         self.local_loss = local_loss
         self.gather_with_grad = gather_with_grad
         self.cache_labels = cache_labels
@@ -341,12 +346,20 @@ class ClipLossMultiLabel(nn.Module):
         # Apply the matching labels as weights to the losses
         weighted_loss_image = (
             loss_image * matching_labels[range(loss_image.size(0)), labels]
-        ).mean()
+        )
         weighted_loss_text = (
             loss_text * matching_labels[range(loss_text.size(0)), labels]
-        ).mean()
+        )
 
         total_loss = (weighted_loss_image + weighted_loss_text) / 2
+
+        # Apply class weights
+        if self.train_class_weights is not None:
+            total_loss = total_loss * self.train_class_weights[labels]
+        if self.valid_class_weights is not None:
+            total_loss = total_loss * self.valid_class_weights[labels]
+
+        total_loss = total_loss.mean()
 
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
@@ -512,9 +525,9 @@ class OriginalCLIPLossWrapper(nn.Module):
 
 
 class CLIPLossMultiLabelWrapper(nn.Module):
-    def __init__(self):
+    def __init__(self, train_class_weights, valid_class_weights):
         super().__init__()
-        self.loss = ClipLossMultiLabel()
+        self.loss = ClipLossMultiLabel(train_class_weights, valid_class_weights)
 
     def forward(
         self,
@@ -581,6 +594,8 @@ class OpenAICLIPModel(nn.Module):
         self,
         config,
         clip_model,
+        train_class_weights,
+        valid_class_weights,
         asl_function_train=None,
         asl_function_valid=None,
     ):
@@ -596,7 +611,12 @@ class OpenAICLIPModel(nn.Module):
             if loss_function == "clip":
                 self.loss_functions.append(OriginalCLIPLossWrapper())
             elif loss_function == "clip_multilabel":
-                self.loss_functions.append(CLIPLossMultiLabelWrapper())
+                self.loss_functions.append(
+                    CLIPLossMultiLabelWrapper(
+                        train_class_weights=train_class_weights,
+                        valid_class_weights=valid_class_weights,
+                    )
+                )
             elif loss_function == "siglip":
                 self.loss_functions.append(
                     SigLipLossWrapper(logit_bias=config.siglip_logit_bias)
