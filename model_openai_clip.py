@@ -355,8 +355,10 @@ class ClipLossMultiLabel(nn.Module):
         )
 
         # Normalize logits to [0, 1] range
-        logits_per_image = torch.sigmoid(logits_per_image)
-        logits_per_text = torch.sigmoid(logits_per_text)
+        logits_per_image = logits_per_image / logits_per_image.norm(
+            dim=-1, keepdim=True
+        )
+        logits_per_text = logits_per_text / logits_per_text.norm(dim=-1, keepdim=True)
 
         targets = self.get_ground_truth(labels_one_hot)
 
