@@ -324,6 +324,7 @@ class ClipLossMultiLabel(nn.Module):
         text_features,
         labels_one_hot,
         logit_scale,
+        mode,
         output_dict=False,
     ):
         device = image_features.device
@@ -354,9 +355,9 @@ class ClipLossMultiLabel(nn.Module):
         total_loss = (weighted_loss_image + weighted_loss_text) / 2
 
         # Apply class weights
-        if self.train_class_weights is not None:
+        if mode == "train" and self.train_class_weights is not None:
             total_loss = total_loss * self.train_class_weights[labels]
-        if self.valid_class_weights is not None:
+        elif mode == "valid" and self.valid_class_weights is not None:
             total_loss = total_loss * self.valid_class_weights[labels]
 
         total_loss = total_loss.mean()
@@ -539,7 +540,9 @@ class CLIPLossMultiLabelWrapper(nn.Module):
         temperature,
         mode,
     ):
-        return self.loss(image_embeddings, text_embeddings, label_one_hot, temperature)
+        return self.loss(
+            image_embeddings, text_embeddings, label_one_hot, temperature, mode
+        )
 
 
 class SigLipLossWrapper(nn.Module):
