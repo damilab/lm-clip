@@ -353,11 +353,15 @@ class ClipLossMultiLabel(nn.Module):
         image_text_sim = logit_scale * image_features @ text_features.T
         text_image_sim = logit_scale * text_features @ image_features.T
 
+        # Normalize the logits
+        image_text_sim = F.log_softmax(image_text_sim, dim=1)
+        text_image_sim = F.log_softmax(text_image_sim, dim=1)
+
         targets = self.get_ground_truth(labels_one_hot)
 
         # Compute the cross-entropy loss with the targets
-        loss_image = F.cross_entropy(logits_per_image, labels, reduction="none")
-        loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
+        loss_image_text = F.cross_entropy(image_text_sim, targets, reduction="none")
+        loss_text_image = F.cross_entropy(text_image_sim, targets, reduction="none")
 
         # loss_image_text = self.asl_function(image_text_sim, targets)
         # loss_text_image = self.asl_function(text_image_sim, targets)
