@@ -379,8 +379,12 @@ class ClipLossMultiLabel(nn.Module):
         similarity_target = self.get_similarity_target(labels_one_hot)
 
         # Calculate the loss for the image and text features
-        loss_image = self.asl_function(logits_per_image, similarity_target)
-        loss_text = self.asl_function(logits_per_text, similarity_target)
+        loss_image = F.binary_cross_entropy_with_logits(
+            logits_per_image, similarity_target
+        )
+        loss_text = F.binary_cross_entropy_with_logits(
+            logits_per_text, similarity_target
+        )
 
         # Calculate the classification loss
         loss_classification = self.asl_function_classification(
