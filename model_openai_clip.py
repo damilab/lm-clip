@@ -275,7 +275,7 @@ class ClipLossMultiLabel(nn.Module):
         self.prev_num_logits = 0
         self.labels = {}
 
-    def get_ground_truth(self, device, num_logits, actual_labels) -> torch.Tensor:
+    def get_ground_truth(self, actual_labels) -> torch.Tensor:
         # Calculate the number of matching labels between samples
         # actual_labels should be a binary tensor of shape (batch_size, num_classes)
         matching_labels = actual_labels @ actual_labels.T
@@ -326,7 +326,7 @@ class ClipLossMultiLabel(nn.Module):
             image_features, text_features, logit_scale
         )
 
-        matching_labels = self.get_ground_truth(device, labels_one_hot)
+        matching_labels = self.get_ground_truth(labels_one_hot)
 
         # Create the adjusted targets using the normalized similarity matrix
         # Note: The targets are normally class indices, but here we'll use a modified approach
