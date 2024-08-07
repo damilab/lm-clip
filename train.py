@@ -296,7 +296,7 @@ def start_training(config, CFG, run_name):
         ),
         num_labels=num_labels_train,
         label_smoothing=CFG.label_smoothing,
-        return_mean=True,
+        return_mean=False,
     ).to(CFG.device)
     asl_function_valid = AsymmetricLossOptimized(
         gamma_neg=CFG.asl_gamma_neg,
@@ -310,7 +310,7 @@ def start_training(config, CFG, run_name):
         ),
         num_labels=num_labels_valid,
         label_smoothing=CFG.label_smoothing,
-        return_mean=True,
+        return_mean=False,
     ).to(CFG.device)
 
     model = OpenAICLIPModel(

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import clip
+from asl_loss import AsymmetricLossOptimized
 
 try:
     import torch.distributed.nn
@@ -256,6 +257,7 @@ class ClipLossMultiLabel(nn.Module):
 
     def __init__(
         self,
+        CFG,
         train_class_weights,
         valid_class_weights,
         local_loss=False,
@@ -268,6 +270,16 @@ class ClipLossMultiLabel(nn.Module):
         super().__init__()
         self.train_class_weights = train_class_weights
         self.valid_class_weights = valid_class_weights
+
+        self.asl_function = AsymmetricLossOptimized(
+            gamma_neg=CFG.asl_gamma_neg,
+            gamma_pos=CFG.asl_gamma_pos,
+            clip=CFG.asl_clip,
+            eps=CFG.asl_eps,
+            num_labels=CFG.batch_size,
+            label_smoothing=CFG.label_smoothing,
+            return_mean=False,
+        ).to(CFG.device)
 
         self.local_loss = local_loss
         self.gather_with_grad = gather_with_grad
@@ -285,12 +297,22 @@ class ClipLossMultiLabel(nn.Module):
         # actual_labels should be a binary tensor of shape (batch_size, num_classes)
         matching_labels = actual_labels @ actual_labels.T
 
-        # Normalize matching labels to be in the range [0, 1]
-        max_matches = torch.max(matching_labels).item()
-        if max_matches > 0:
-            matching_labels = matching_labels / max_matches
+        # Calculate the total number of labels for each sample pair
+        total_labels = (
+            actual_labels.sum(dim=1, keepdim=True)
+            + actual_labels.sum(dim=1)
+            - matching_labels
+        )
 
-        return matching_labels
+        # To avoid division by zero, set any zero totals to 1 (will result in zero matching percentage)
+        total_labels = torch.where(
+            total_labels == 0, torch.ones_like(total_labels), total_labels
+        )
+
+        # Calculate the percentage of matching labels between samples
+        matching_percentage = matching_labels / total_labels
+
+        return matching_percentage
 
     def get_logits(self, image_features, text_features, logit_scale):
         if self.world_size > 1:
@@ -332,33 +354,25 @@ class ClipLossMultiLabel(nn.Module):
             image_features, text_features, logit_scale
         )
 
-        matching_labels = self.get_ground_truth(labels_one_hot)
+        # Normalize logits to [0, 1] range
+        logits_per_image = torch.sigmoid(logits_per_image)
+        logits_per_text = torch.sigmoid(logits_per_text)
 
-        # Create the adjusted targets using the normalized similarity matrix
-        # Note: The targets are normally class indices, but here we'll use a modified approach
-        labels = torch.arange(
-            logits_per_image.shape[0], device=device, dtype=torch.long
-        )
+        targets = self.get_ground_truth(labels_one_hot)
 
-        # Compute the cross-entropy loss with the adjusted targets
-        loss_image = F.cross_entropy(logits_per_image, labels, reduction="none")
-        loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
+        # Compute the cross-entropy loss with the targets
+        # loss_image = F.cross_entropy(logits_per_image, labels, reduction="none")
+        # loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
+        loss_image = self.asl_function(logits_per_image, targets)
+        loss_text = self.asl_function(logits_per_text, targets)
 
-        # Apply the matching labels as weights to the losses
-        weighted_loss_image = (
-            loss_image * matching_labels[range(loss_image.size(0)), labels]
-        )
-        weighted_loss_text = (
-            loss_text * matching_labels[range(loss_text.size(0)), labels]
-        )
+        total_loss = (loss_image + loss_text) / 2
 
-        total_loss = (weighted_loss_image + weighted_loss_text) / 2
-
-        # Apply class weights
-        if mode == "train" and self.train_class_weights is not None:
-            total_loss = total_loss * self.train_class_weights[labels]
-        elif mode == "valid" and self.valid_class_weights is not None:
-            total_loss = total_loss * self.valid_class_weights[labels]
+        # # Apply class weights
+        # if mode == "train" and self.train_class_weights is not None:
+        #     total_loss = total_loss * self.train_class_weights[labels]
+        # elif mode == "valid" and self.valid_class_weights is not None:
+        #     total_loss = total_loss * self.valid_class_weights[labels]
 
         total_loss = total_loss.mean()
 
@@ -526,9 +540,9 @@ class OriginalCLIPLossWrapper(nn.Module):
 
 
 class CLIPLossMultiLabelWrapper(nn.Module):
-    def __init__(self, train_class_weights, valid_class_weights):
+    def __init__(self, CFG, train_class_weights, valid_class_weights):
         super().__init__()
-        self.loss = ClipLossMultiLabel(train_class_weights, valid_class_weights)
+        self.loss = ClipLossMultiLabel(CFG, train_class_weights, valid_class_weights)
 
     def forward(
         self,
@@ -616,6 +630,7 @@ class OpenAICLIPModel(nn.Module):
             elif loss_function == "clip_multilabel":
                 self.loss_functions.append(
                     CLIPLossMultiLabelWrapper(
+                        CFG=config,
                         train_class_weights=train_class_weights,
                         valid_class_weights=valid_class_weights,
                     )
