@@ -350,25 +350,31 @@ class ClipLossMultiLabel(nn.Module):
         output_dict=False,
     ):
         device = image_features.device
-        logits_per_image, logits_per_text = self.get_logits(
-            image_features, text_features, logit_scale
-        )
+        image_text_sim = logit_scale * image_features @ text_features.T
+        text_image_sim = logit_scale * text_features @ image_features.T
+        image_image_sim = logit_scale * image_features @ image_features.T
+        text_text_sim = logit_scale * text_features @ text_features.T
 
         # Normalize logits to [0, 1] range
-        logits_per_image = logits_per_image / logits_per_image.norm(
-            dim=-1, keepdim=True
-        )
-        logits_per_text = logits_per_text / logits_per_text.norm(dim=-1, keepdim=True)
+        image_text_sim = image_text_sim / image_text_sim.norm(dim=-1, keepdim=True)
+        text_image_sim = text_image_sim / text_image_sim.norm(dim=-1, keepdim=True)
+        image_image_sim = image_image_sim / image_image_sim.norm(dim=-1, keepdim=True)
+        text_text_sim = text_text_sim / text_text_sim.norm(dim=-1, keepdim=True)
 
         targets = self.get_ground_truth(labels_one_hot)
 
         # Compute the cross-entropy loss with the targets
         # loss_image = F.cross_entropy(logits_per_image, labels, reduction="none")
         # loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
-        loss_image = self.asl_function(logits_per_image, targets)
-        loss_text = self.asl_function(logits_per_text, targets)
 
-        total_loss = (loss_image + loss_text) / 2
+        loss_image_text = self.asl_function(image_text_sim, targets)
+        loss_text_image = self.asl_function(text_image_sim, targets)
+        loss_image_image = self.asl_function(image_image_sim, targets)
+        loss_text_text = self.asl_function(text_text_sim, targets)
+
+        total_loss = (
+            loss_image_text + loss_text_image + loss_image_image + loss_text_text
+        ) / 4
 
         # # Apply class weights
         # if mode == "train" and self.train_class_weights is not None:
