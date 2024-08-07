@@ -292,7 +292,7 @@ class ClipLossMultiLabel(nn.Module):
         self.prev_num_logits = 0
         self.labels = {}
 
-    def get_ground_truth(self, actual_labels) -> torch.Tensor:
+    def get_matching_labels(self, actual_labels) -> torch.Tensor:
         # Calculate the number of matching labels between samples
         # actual_labels should be a binary tensor of shape (batch_size, num_classes)
         matching_labels = actual_labels @ actual_labels.T
@@ -303,6 +303,28 @@ class ClipLossMultiLabel(nn.Module):
             matching_labels = matching_labels / max_matches
 
         return matching_labels
+
+    def get_similarity_target(self, actual_labels) -> torch.Tensor:
+        # Calculate the number of matching labels between samples
+        # actual_labels should be a binary tensor of shape (batch_size, num_classes)
+        matching_labels = actual_labels @ actual_labels.T
+
+        # Calculate the total number of labels for each sample pair
+        total_labels = (
+            actual_labels.sum(dim=1, keepdim=True)
+            + actual_labels.sum(dim=1)
+            - matching_labels
+        )
+
+        # To avoid division by zero, set any zero totals to 1 (will result in zero matching percentage)
+        total_labels = torch.where(
+            total_labels == 0, torch.ones_like(total_labels), total_labels
+        )
+
+        # Calculate the percentage of matching labels between samples
+        matching_percentage = matching_labels / total_labels
+
+        return matching_percentage
 
     def get_logits(self, image_features, text_features, logit_scale):
         if self.world_size > 1:
@@ -336,7 +358,6 @@ class ClipLossMultiLabel(nn.Module):
         text_features,
         labels_one_hot,
         logit_scale,
-        mode,
         output_dict=False,
     ):
         device = image_features.device
@@ -352,30 +373,19 @@ class ClipLossMultiLabel(nn.Module):
             logits_per_image.shape[0], device=device, dtype=torch.long
         )
 
-        # Compute the cross-entropy loss
+        # Compute the cross-entropy loss with the adjusted targets
         loss_image = F.cross_entropy(logits_per_image, labels, reduction="none")
         loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
-
-        # loss_image_text = self.asl_function(image_text_sim, targets)
-        # loss_text_image = self.asl_function(text_image_sim, targets)
 
         # Apply the matching labels as weights to the losses
         weighted_loss_image = (
             loss_image * matching_labels[range(loss_image.size(0)), labels]
-        )
+        ).mean()
         weighted_loss_text = (
             loss_text * matching_labels[range(loss_text.size(0)), labels]
-        )
+        ).mean()
 
         total_loss = (weighted_loss_image + weighted_loss_text) / 2
-
-        # # Apply class weights
-        # if mode == "train" and self.train_class_weights is not None:
-        #     total_loss = total_loss * self.train_class_weights[labels]
-        # elif mode == "valid" and self.valid_class_weights is not None:
-        #     total_loss = total_loss * self.valid_class_weights[labels]
-
-        total_loss = total_loss.mean()
 
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
