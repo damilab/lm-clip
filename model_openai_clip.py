@@ -280,6 +280,15 @@ class ClipLossMultiLabel(nn.Module):
             label_smoothing=CFG.label_smoothing,
             return_mean=False,
         ).to(CFG.device)
+        self.asl_function_classification = AsymmetricLossOptimized(
+            gamma_neg=CFG.asl_gamma_neg,
+            gamma_pos=CFG.asl_gamma_pos,
+            clip=CFG.asl_clip,
+            eps=CFG.asl_eps,
+            num_labels=self.train_class_weights.shape[0],
+            label_smoothing=CFG.label_smoothing,
+            return_mean=False,
+        ).to(CFG.device)
 
         self.local_loss = local_loss
         self.gather_with_grad = gather_with_grad
@@ -357,7 +366,9 @@ class ClipLossMultiLabel(nn.Module):
         image_features,
         text_features,
         labels_one_hot,
+        dot_similarity,
         logit_scale,
+        mode,
         output_dict=False,
     ):
         device = image_features.device
@@ -365,27 +376,22 @@ class ClipLossMultiLabel(nn.Module):
             image_features, text_features, logit_scale
         )
 
-        matching_labels = self.get_ground_truth(labels_one_hot)
+        similarity_target = self.get_similarity_target(labels_one_hot)
 
-        # Create the adjusted targets using the normalized similarity matrix
-        # Note: The targets are normally class indices, but here we'll use a modified approach
-        labels = torch.arange(
-            logits_per_image.shape[0], device=device, dtype=torch.long
-        )
+        # Calculate the loss for the image and text features
+        loss_image = self.asl_function(logits_per_image, similarity_target)
+        loss_text = self.asl_function(logits_per_text, similarity_target)
 
-        # Compute the cross-entropy loss with the adjusted targets
-        loss_image = F.cross_entropy(logits_per_image, labels, reduction="none")
-        loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
-
-        # Apply the matching labels as weights to the losses
-        weighted_loss_image = (
-            loss_image * matching_labels[range(loss_image.size(0)), labels]
-        ).mean()
-        weighted_loss_text = (
-            loss_text * matching_labels[range(loss_text.size(0)), labels]
+        # Calculate the classification loss
+        loss_classification = self.asl_function_classification(
+            dot_similarity, labels_one_hot
         ).mean()
 
-        total_loss = (weighted_loss_image + weighted_loss_text) / 2
+        # Calculate the total loss
+        image_text_loss = (loss_image + loss_text) / 2
+        image_text_loss = image_text_loss.mean()
+
+        total_loss = (image_text_loss + loss_classification) / 2
 
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
@@ -566,7 +572,12 @@ class CLIPLossMultiLabelWrapper(nn.Module):
         mode,
     ):
         return self.loss(
-            image_embeddings, text_embeddings, label_one_hot, temperature, mode
+            image_embeddings,
+            text_embeddings,
+            label_one_hot,
+            dot_similarity,
+            temperature,
+            mode,
         )
 
 
