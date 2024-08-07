@@ -1,9 +1,11 @@
-datasets/coco_mlt/images
-datasets/voc_mlt/VOCdevkit
-datasets/**/*.tar
-datasets/**/*.zip
+dataset_loaders/coco_mlt/images
+dataset_loaders/voc_mlt/VOCdevkit
+dataset_loaders/**/*.tar
+dataset_loaders/**/*.zip
 __pycache__
 runs
 prompt_images
+data
+ray_results
 
 *.tar

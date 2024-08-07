@@ -11,9 +11,9 @@ class CFG:
 
     # Controls which checkpoints are saved during training each epoch
     save_newest_checkpoint = False
-    save_best_mAP_checkpoint = False
-    save_best_tail_mAP_checkpoint = False
-    log_tensorboard = False
+    save_best_mAP_checkpoint = True
+    save_best_tail_mAP_checkpoint = True
+    log_tensorboard = True
 
     # Controls image input size to the image encoder
     size = 224
@@ -36,29 +36,29 @@ class CFG:
         "asl",
     ]
     # Sets the λ factor for balancing ASL and CLIP loss functions
-    asl_mul = 1.0
+    asl_mul = 9.0
 
     # ASL loss function parameters
-    asl_gamma_neg = 4.0
+    asl_gamma_neg = 3.0
     asl_gamma_pos = 0.0
-    asl_clip = 0.05
-    asl_eps = 1e-7
+    asl_clip = 0.025
+    asl_eps = 1e-8
 
     # Configures oversampling of tail classes, s parameter in the paper, sample_weights_power and class_weights_power are set to the same value for simplicity
     use_sample_weights = True
-    sample_weights_power = 2.0
+    sample_weights_power = 0.4
 
     # Configures class weights for the loss function
     use_weighted_loss = True
-    class_weights_power = 1.0
+    class_weights_power = 0.2
 
     # Label smoothing for ASL loss
-    label_smoothing = 0.1
+    label_smoothing = 0.05
 
     # Determines which optimizer to use: "AdamW", "Adam", or "SGD"
     optimizer = "AdamW"
     # Base learning rate for the optimizer
-    lr = 1e-6
+    lr = 0.5e-6
     # Momentum for the SGD optimizer
     momentum = 0.9
     # Weight decay for the optimizer

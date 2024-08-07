@@ -252,6 +252,102 @@ class ClipLoss(nn.Module):
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
 
+class ClipLossMultiLabel(nn.Module):
+
+    def __init__(
+        self,
+        local_loss=False,
+        gather_with_grad=False,
+        cache_labels=False,
+        rank=0,
+        world_size=1,
+        use_horovod=False,
+    ):
+        super().__init__()
+        self.local_loss = local_loss
+        self.gather_with_grad = gather_with_grad
+        self.cache_labels = cache_labels
+        self.rank = rank
+        self.world_size = world_size
+        self.use_horovod = use_horovod
+
+        # cache state
+        self.prev_num_logits = 0
+        self.labels = {}
+
+    def get_ground_truth(self, device, num_logits, actual_labels) -> torch.Tensor:
+        # Create a mask for positive samples based on actual labels
+        # actual_labels should be a binary tensor of shape (batch_size, num_classes)
+        mask = actual_labels @ actual_labels.T > 0
+
+        # calculated ground-truth and cache if enabled
+        if self.prev_num_logits != num_logits or device not in self.labels:
+            labels = torch.arange(num_logits, device=device, dtype=torch.long)
+            if self.world_size > 1 and self.local_loss:
+                labels = labels + num_logits * self.rank
+            if self.cache_labels:
+                self.labels[device] = labels
+                self.prev_num_logits = num_logits
+        else:
+            labels = self.labels[device]
+
+        return labels, mask
+
+    def get_logits(self, image_features, text_features, logit_scale):
+        if self.world_size > 1:
+            all_image_features, all_text_features = gather_features(
+                image_features,
+                text_features,
+                self.local_loss,
+                self.gather_with_grad,
+                self.rank,
+                self.world_size,
+                self.use_horovod,
+            )
+
+            if self.local_loss:
+                logits_per_image = logit_scale * image_features @ all_text_features.T
+                logits_per_text = logit_scale * text_features @ all_image_features.T
+            else:
+                logits_per_image = (
+                    logit_scale * all_image_features @ all_text_features.T
+                )
+                logits_per_text = logits_per_image.T
+        else:
+            logits_per_image = logit_scale * image_features @ text_features.T
+            logits_per_text = logit_scale * text_features @ image_features.T
+
+        return logits_per_image, logits_per_text
+
+    def forward(
+        self,
+        image_features,
+        text_features,
+        labels_one_hot,
+        logit_scale,
+        output_dict=False,
+    ):
+        device = image_features.device
+        logits_per_image, logits_per_text = self.get_logits(
+            image_features, text_features, logit_scale
+        )
+
+        labels, mask = self.get_ground_truth(
+            device, logits_per_image.shape[0], labels_one_hot
+        )
+
+        # Apply mask to logits
+        logits_per_image = logits_per_image * mask
+        logits_per_text = logits_per_text * mask
+
+        total_loss = (
+            F.cross_entropy(logits_per_image, labels)
+            + F.cross_entropy(logits_per_text, labels)
+        ) / 2
+
+        return {"contrastive_loss": total_loss} if output_dict else total_loss
+
+
 class SigLipLoss(nn.Module):
     """Sigmoid Loss for Language Image Pre-Training (SigLIP) - https://arxiv.org/abs/2303.15343
 
@@ -412,6 +508,24 @@ class OriginalCLIPLossWrapper(nn.Module):
         return self.loss(image_embeddings, text_embeddings, temperature)
 
 
+class CLIPLossMultiLabelWrapper(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.loss = ClipLossMultiLabel()
+
+    def forward(
+        self,
+        image_embeddings,
+        text_embeddings,
+        label_embeddings,
+        dot_similarity,
+        label_one_hot,
+        temperature,
+        mode,
+    ):
+        return self.loss(image_embeddings, text_embeddings, label_one_hot, temperature)
+
+
 class SigLipLossWrapper(nn.Module):
     def __init__(self, logit_bias):
         super().__init__()
@@ -478,6 +592,8 @@ class OpenAICLIPModel(nn.Module):
         for loss_function in config.loss_function:
             if loss_function == "clip":
                 self.loss_functions.append(OriginalCLIPLossWrapper())
+            elif loss_function == "clip_multilabel":
+                self.loss_functions.append(CLIPLossMultiLabelWrapper())
             elif loss_function == "siglip":
                 self.loss_functions.append(
                     SigLipLossWrapper(logit_bias=config.siglip_logit_bias)

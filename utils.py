@@ -37,11 +37,34 @@ def eval_map_subset(results, gt_labels, subset):
     return mAP
 
 
+def evaluate_slc(predict_p, gt_labels):
+    # Calculate top-1 accuracy and error rate
+    top1 = 0
+    for i in range(len(predict_p)):
+        highest_prob = np.argmax(predict_p[i])
+        if gt_labels[i][highest_prob] == 1:
+            top1 += 1
+
+    top1 /= len(predict_p)
+    top1error = 1 - top1
+
+    return top1, top1error
+
+
 def evaluate_mlc(predict_p, gt_labels, head_classes, middle_classes, tail_classes):
     mAP, APs = eval_map(predict_p, gt_labels)
-    mAP_head = eval_map_subset(predict_p, gt_labels, head_classes)
-    mAP_middle = eval_map_subset(predict_p, gt_labels, middle_classes)
-    mAP_tail = eval_map_subset(predict_p, gt_labels, tail_classes)
+    if head_classes is not None:
+        mAP_head = eval_map_subset(predict_p, gt_labels, head_classes)
+    else:
+        mAP_head = None
+    if middle_classes is not None:
+        mAP_middle = eval_map_subset(predict_p, gt_labels, middle_classes)
+    else:
+        mAP_middle = None
+    if tail_classes is not None:
+        mAP_tail = eval_map_subset(predict_p, gt_labels, tail_classes)
+    else:
+        mAP_tail = None
     AUROC, AUROCs = eval_auroc(predict_p, gt_labels)
 
     return mAP, APs, mAP_head, mAP_middle, mAP_tail, AUROC, AUROCs

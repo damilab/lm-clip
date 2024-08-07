@@ -2,8 +2,9 @@ import torch
 
 
 class CFG:
-    # Dataset options: "coco_mlt", "voc_mlt"
-    dataset = "voc_mlt"
+    # Dataset options: "coco_mlt", "voc_mlt", "cifar_100_lt_r100"
+    dataset = "cifar_100_lt_r100"
+
     # Is used for the label embeddings to predict classes. Also used as image captions if use_dataset_train_captions is False
     class_caption = "a photo of a "
     # Determines if the dataset natural language captions should be used during training
@@ -42,14 +43,14 @@ class CFG:
     asl_gamma_neg = 4.0
     asl_gamma_pos = 0.0
     asl_clip = 0.05
-    asl_eps = 1e-7
+    asl_eps = 1e-8
 
     # Configures oversampling of tail classes, s parameter in the paper, sample_weights_power and class_weights_power are set to the same value for simplicity
-    use_sample_weights = True
-    sample_weights_power = 2.0
+    use_sample_weights = False
+    sample_weights_power = 1.0
 
     # Configures class weights for the loss function
-    use_weighted_loss = True
+    use_weighted_loss = False
     class_weights_power = 1.0
 
     # Label smoothing for ASL loss

@@ -1,8 +1,5 @@
-from utils import (
-    AvgMeter,
-    get_lr,
-    evaluate_mlc,
-)
+from utils import AvgMeter, get_lr, evaluate_mlc, evaluate_slc
+from functools import partial
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -11,10 +8,19 @@ from torch.utils.tensorboard import SummaryWriter
 from asl_loss import AsymmetricLossOptimized
 from model_openai_clip import OpenAICLIPModel
 import numpy as np
-import datasets.voc_mlt as voc_mlt
-import datasets.coco_mlt as coco_mlt
+import dataset_loaders.voc_mlt as voc_mlt
+import dataset_loaders.coco_mlt as coco_mlt
+import dataset_loaders.cifar_100_lt as cifar_100_lt
 import os
 import clip
+from ray import tune
+from ray import train
+from ray.train import Checkpoint, get_checkpoint
+from ray.tune.schedulers import ASHAScheduler
+import ray.cloudpickle as pickle
+from ray.tune.search.optuna import OptunaSearch
+import ray
+from ray.air.config import RunConfig
 
 
 def train_epoch(
@@ -51,44 +57,46 @@ def train_epoch(
         gt_labels.extend(label_one_hot_int.cpu().numpy().tolist())
         predict_p.extend(sf(preds).cpu().detach().numpy())
 
-    try:
-        mAP, APs, mAP_head, mAP_middle, mAP_tail, AUROC, AUROCs = evaluate_mlc(
-            predict_p,
-            gt_labels,
-            train_loader.dataset.head_classes,
-            train_loader.dataset.middle_classes,
-            train_loader.dataset.tail_classes,
-        )
-        print("train mAP: {}".format(mAP))
-        print("train mAP head: {}".format(mAP_head))
-        print("train mAP middle: {}".format(mAP_middle))
-        print("train mAP tail: {}".format(mAP_tail))
+    train_metrics = {}
+    train_metrics["loss"] = loss_meter.avg
 
-        print("train AUROC: {}".format(AUROC))
-    except:
-        print("ValueError: Input contains NaN.")
-        print(
-            "train epoch[{}/{}] loss: {:.3f}".format(
-                epoch + 1, CFG.epochs, loss_meter.avg
+    # If dataset starts with cifar_100_lt, evaluate single-label classification
+    if CFG.dataset.startswith("cifar_100_lt"):
+        top1, top1error = evaluate_slc(predict_p, gt_labels)
+
+        train_metrics["top1"] = top1
+        train_metrics["top1error"] = top1error
+
+    else:
+        try:
+            mAP, APs, mAP_head, mAP_middle, mAP_tail, AUROC, AUROCs = evaluate_mlc(
+                predict_p,
+                gt_labels,
+                train_loader.dataset.head_classes,
+                train_loader.dataset.middle_classes,
+                train_loader.dataset.tail_classes,
             )
-        )
-        mAP = np.nan
-        mAP_head = np.nan
-        mAP_middle = np.nan
-        mAP_tail = np.nan
-        AUROC = np.nan
-        APs = None
-        AUROCs = None
-    return (
-        loss_meter.avg,
-        mAP,
-        APs,
-        mAP_head,
-        mAP_middle,
-        mAP_tail,
-        AUROC,
-        AUROCs,
-    )
+
+            train_metrics["mAP"] = mAP
+            train_metrics["mAP_head"] = mAP_head
+            train_metrics["mAP_middle"] = mAP_middle
+            train_metrics["mAP_tail"] = mAP_tail
+            train_metrics["AUROC"] = AUROC
+        except:
+            print("ValueError: Input contains NaN.")
+            print(
+                "train epoch[{}/{}] loss: {:.3f}".format(
+                    epoch + 1, CFG.epochs, loss_meter.avg
+                )
+            )
+
+            train_metrics["mAP"] = np.nan
+            train_metrics["mAP_head"] = np.nan
+            train_metrics["mAP_middle"] = np.nan
+            train_metrics["mAP_tail"] = np.nan
+            train_metrics["AUROC"] = np.nan
+
+    return train_metrics
 
 
 def valid_epoch(
@@ -120,22 +128,43 @@ def valid_epoch(
         gt_labels.extend(label_one_hot_int.cpu().numpy().tolist())
         predict_p.extend(sf(preds).cpu().detach().numpy())
 
-    mAP, APs, mAP_head, mAP_middle, mAP_tail, AUROC, AUROCs = evaluate_mlc(
-        predict_p,
-        gt_labels,
-        valid_loader.dataset.head_classes,
-        valid_loader.dataset.middle_classes,
-        valid_loader.dataset.tail_classes,
-    )
+    valid_metrics = {}
+    valid_metrics["loss"] = loss_meter.avg
 
-    print("valid mAP: {}".format(mAP))
-    print("valid mAP head: {}".format(mAP_head))
-    print("valid mAP middle: {}".format(mAP_middle))
-    print("valid mAP tail: {}".format(mAP_tail))
+    if CFG.dataset.startswith("cifar_100_lt"):
+        top1, top1error = evaluate_slc(predict_p, gt_labels)
 
-    print("valid AUROC: {}".format(AUROC))
+        valid_metrics["top1"] = top1
+        valid_metrics["top1error"] = top1error
+    else:
+        mAP, APs, mAP_head, mAP_middle, mAP_tail, AUROC, AUROCs = evaluate_mlc(
+            predict_p,
+            gt_labels,
+            valid_loader.dataset.head_classes,
+            valid_loader.dataset.middle_classes,
+            valid_loader.dataset.tail_classes,
+        )
 
-    return loss_meter.avg, mAP, APs, mAP_head, mAP_middle, mAP_tail, AUROC, AUROCs
+        valid_metrics["mAP"] = mAP
+        valid_metrics["mAP_head"] = mAP_head
+        valid_metrics["mAP_middle"] = mAP_middle
+        valid_metrics["mAP_tail"] = mAP_tail
+        valid_metrics["AUROC"] = AUROC
+        # except:
+        #     print("ValueError: Input contains NaN.")
+        #     print(
+        #         "valid epoch[{}/{}] loss: {:.3f}".format(
+        #             epoch + 1, CFG.epochs, loss_meter.avg
+        #         )
+        #     )
+
+        #     valid_metrics["mAP"] = np.nan
+        #     valid_metrics["mAP_head"] = np.nan
+        #     valid_metrics["mAP_middle"] = np.nan
+        #     valid_metrics["mAP_tail"] = np.nan
+        #     valid_metrics["AUROC"] = np.nan
+
+    return valid_metrics
 
 
 def save_checkpoint(
@@ -163,13 +192,22 @@ def save_checkpoint(
     print(f"Saved {path}!")
 
 
-def train(CFG, run_name):
+def start_training(config, CFG, run_name):
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+    # config is ray tune hyperparameter search space
+    # Apply the hyperparameters from config to CFG
+    for key, value in config.items():
+        setattr(CFG, key, value)
+
+    print(CFG)
+
     model, image_preprocessor = clip.load(CFG.model_name, device=CFG.device, jit=False)
     model = model.float()
 
     if CFG.dataset == "voc_mlt":
         train_loader = voc_mlt.build_loaders(
-            root="datasets/voc_mlt",
+            root="dataset_loaders/voc_mlt",
             mode="train",
             image_size=CFG.size,
             batch_size=CFG.batch_size,
@@ -181,7 +219,7 @@ def train(CFG, run_name):
             class_weights_power=CFG.class_weights_power,
         )
         valid_loader = voc_mlt.build_loaders(
-            root="datasets/voc_mlt",
+            root="dataset_loaders/voc_mlt",
             mode="valid",
             image_size=CFG.size,
             batch_size=CFG.batch_size,
@@ -192,7 +230,7 @@ def train(CFG, run_name):
         )
     elif CFG.dataset == "coco_mlt":
         train_loader = coco_mlt.build_loaders(
-            root="datasets/coco_mlt",
+            root="dataset_loaders/coco_mlt",
             mode="train",
             image_size=CFG.size,
             batch_size=CFG.batch_size,
@@ -205,7 +243,7 @@ def train(CFG, run_name):
             class_weights_power=CFG.class_weights_power,
         )
         valid_loader = coco_mlt.build_loaders(
-            root="datasets/coco_mlt",
+            root="dataset_loaders/coco_mlt",
             mode="valid",
             image_size=CFG.size,
             batch_size=CFG.batch_size,
@@ -215,8 +253,33 @@ def train(CFG, run_name):
             caption_max_length=CFG.max_length,
             use_sample_weights=False,
         )
+    elif CFG.dataset == "cifar_100_lt_r100":
+        train_loader = cifar_100_lt.build_loaders(
+            mode="train",
+            image_size=CFG.size,
+            batch_size=CFG.batch_size,
+            num_workers=CFG.num_workers,
+            class_caption=CFG.class_caption,
+            use_dataset_train_captions=CFG.use_dataset_train_captions,
+            imbalance_factor="r-100",
+            use_sample_weights=CFG.use_sample_weights,
+            sample_weights_power=CFG.sample_weights_power,
+            class_weights_power=CFG.class_weights_power,
+        )
+        valid_loader = cifar_100_lt.build_loaders(
+            mode="valid",
+            image_size=CFG.size,
+            batch_size=CFG.batch_size,
+            num_workers=CFG.num_workers,
+            class_caption=CFG.class_caption,
+            use_dataset_train_captions=CFG.use_dataset_train_captions,
+            imbalance_factor="r-100",
+            use_sample_weights=False,
+        )
     else:
-        raise ValueError("Only voc_mlt and coco_mlt are supported as datasets")
+        raise ValueError(
+            "Only voc_mlt, coco_mlt and cifar_100_lt are supported as datasets"
+        )
 
     num_labels_train = train_loader.dataset.num_classes
     num_labels_valid = valid_loader.dataset.num_classes
@@ -311,6 +374,9 @@ def train(CFG, run_name):
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=CFG.epochs, eta_min=0
     )
+    # lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer, mode="max", factor=0.9, patience=5
+    # )
 
     # Calculate tokens for the labels
     encoded_labels_train = torch.cat(
@@ -327,7 +393,8 @@ def train(CFG, run_name):
     ).to(CFG.device)
 
     # Set up tensorboard
-    writer = SummaryWriter(log_dir=f"runs/{run_name}")
+    if not CFG.ray:
+        writer = SummaryWriter(log_dir=f"runs/{run_name}")
 
     cfg_dict = {
         key: str(value)
@@ -336,103 +403,91 @@ def train(CFG, run_name):
     }
     config_json = json.dumps(cfg_dict, indent=4, sort_keys=True, ensure_ascii=False)
 
-    writer.add_text("config", config_json, 0)
+    if not CFG.ray:
+        writer.add_text("config", config_json, 0)
 
     for epoch in range(start_epoch, CFG.epochs):
         print(f"Epoch: {epoch + 1}")
         model.train()
-        (
-            train_loss_mean,
-            train_mAP,
-            train_APs,
-            train_mAP_head,
-            train_mAP_middle,
-            train_mAP_tail,
-            train_AUROC,
-            train_AUROCs,
-        ) = train_epoch(
+        train_metrics = train_epoch(
             model=model,
             train_loader=train_loader,
             encoded_labels=encoded_labels_train,
             optimizer=optimizer,
             epoch=epoch,
         )
+        # Print metrics with 4 decimal points
+        for key, value in train_metrics.items():
+            print(f"train/{key}: {value:.4f}")
 
         model.eval()
         with torch.no_grad():
-            (
-                valid_loss,
-                valid_mAP,
-                valid_APs,
-                valid_mAP_head,
-                valid_mAP_middle,
-                valid_mAP_tail,
-                valid_AUROC,
-                valid_AUROCs,
-            ) = valid_epoch(
+            valid_metrics = valid_epoch(
                 model=model,
                 valid_loader=valid_loader,
                 encoded_labels=encoded_labels_valid,
                 epoch=epoch,
             )
+            # Print metrics with 4 decimal points
+            for key, value in valid_metrics.items():
+                print(f"val/{key}: {value:.4f}")
 
-        writer.add_scalar("train/loss", train_loss_mean, epoch)
-        writer.add_scalar("train/mAP", train_mAP, epoch)
-        writer.add_scalar("train/mAP_head", train_mAP_head, epoch)
-        writer.add_scalar("train/mAP_middle", train_mAP_middle, epoch)
-        writer.add_scalar("train/mAP_tail", train_mAP_tail, epoch)
-        writer.add_scalar("train/auroc", train_AUROC, epoch)
+        # Unpack metrics in one dictionary with prefixes
+        metrics = {"train": train_metrics, "val": valid_metrics}
 
-        writer.add_scalar("val/loss", valid_loss, epoch)
-        writer.add_scalar("val/mAP", valid_mAP, epoch)
-        writer.add_scalar("val/mAP_head", valid_mAP_head, epoch)
-        writer.add_scalar("val/mAP_middle", valid_mAP_middle, epoch)
-        writer.add_scalar("val/mAP_tail", valid_mAP_tail, epoch)
-        writer.add_scalar("val/auroc", valid_AUROC, epoch)
+        if not CFG.ray:
+            for key, value in train_metrics.items():
+                writer.add_scalar(f"train/{key}", value, epoch)
+            for key, value in valid_metrics.items():
+                writer.add_scalar(f"val/{key}", value, epoch)
 
         model_state_dict = model.state_dict()
 
-        # Save checkpoints
-        if valid_mAP > best_mAP:
-            best_mAP = valid_mAP
-            if CFG.save_best_mAP_checkpoint:
-                save_checkpoint(
-                    epoch,
-                    model_state_dict,
-                    optimizer,
-                    train_loss_mean,
-                    valid_loss,
-                    best_mAP,
-                    best_mAP_tail,
-                    writer.log_dir + "/best_valid_mAP.pt",
-                )
+        if CFG.ray:
+            ray.train.report(metrics)
 
-        if valid_mAP_tail > best_mAP_tail:
-            best_mAP_tail = valid_mAP_tail
-            if CFG.save_best_tail_mAP_checkpoint:
-                save_checkpoint(
-                    epoch,
-                    model_state_dict,
-                    optimizer,
-                    train_loss_mean,
-                    valid_loss,
-                    best_mAP,
-                    best_mAP_tail,
-                    writer.log_dir + "/best_valid_mAP_tail.pt",
-                )
+        # Save checkpoints
+        # if metrics["val"]["mAP"] > best_mAP:
+        #     best_mAP = metrics["val"]["mAP"]
+        #     if CFG.save_best_mAP_checkpoint:
+        #         save_checkpoint(
+        #             epoch,
+        #             model_state_dict,
+        #             optimizer,
+        #             metrics["train"]["loss"],
+        #             metrics["val"]["loss"],
+        #             best_mAP,
+        #             best_mAP_tail,
+        #             writer.log_dir + "/best_valid_mAP.pt",
+        #         )
+
+        # if metrics["val"]["mAP_tail"] and metrics["val"]["mAP_tail"] > best_mAP_tail:
+        #     best_mAP_tail = metrics["val"]["mAP_tail"]
+        #     if CFG.save_best_tail_mAP_checkpoint:
+        #         save_checkpoint(
+        #             epoch,
+        #             model_state_dict,
+        #             optimizer,
+        #             metrics["train"]["loss"],
+        #             metrics["val"]["loss"],
+        #             best_mAP,
+        #             best_mAP_tail,
+        #             writer.log_dir + "/best_valid_mAP_tail.pt",
+        #         )
 
         if CFG.save_newest_checkpoint:
             save_checkpoint(
                 epoch,
                 model_state_dict,
                 optimizer,
-                train_loss_mean,
-                valid_loss,
+                metrics["train"]["loss"],
+                metrics["val"]["loss"],
                 best_mAP,
                 best_mAP_tail,
                 writer.log_dir + "/newest_train_checkpoint.pt",
             )
 
+        # lr_scheduler.step(metrics["val"]["mAP_tail"])
         lr_scheduler.step()
 
 
@@ -442,6 +497,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str)
+    parser.add_argument("--ray", type=bool, default=False)
     args = parser.parse_args()
 
     if args.config is None:
@@ -453,5 +509,57 @@ if __name__ == "__main__":
     config_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config_module)
     CFG = config_module.CFG
+    CFG.ray = args.ray
 
-    train(CFG, run_name)
+    if args.ray:
+        # Init ray
+        ray.init(runtime_env={"working_dir": os.path.abspath(".")})
+
+        # Configure ray tune hyperparameter search space
+        config = {
+            "batch_size": tune.choice([4, 8, 16]),
+            "asl_gamma_neg": tune.loguniform(2.0, 8.0),
+            # "asl_gamma_pos": tune.loguniform(0),
+            "asl_clip": tune.loguniform(0.01, 0.1),
+            "asl_mul": tune.loguniform(6, 15.0),
+            "label_smoothing": tune.loguniform(0.005, 0.1),
+            "sample_weights_power": tune.loguniform(0.01, 2.0),
+            "class_weights_power": tune.loguniform(0.01, 2.0),
+            "CFG": CFG,
+        }
+
+        gpus_per_trial = 1
+        cpus_per_trial = 4
+        num_samples = 50
+        max_num_epochs = CFG.epochs
+        scheduler = ASHAScheduler(
+            max_t=max_num_epochs,
+            grace_period=5,
+            metric="val/mAP_tail",
+            mode="max",
+            reduction_factor=2,
+        )
+
+        optuna_search = OptunaSearch(metric="val/mAP_tail", mode="max")
+        tuner = tune.Tuner(
+            tune.with_resources(
+                tune.with_parameters(start_training, CFG=CFG, run_name=run_name),
+                resources={"cpu": cpus_per_trial, "gpu": gpus_per_trial},
+            ),
+            tune_config=tune.TuneConfig(
+                search_alg=optuna_search,
+                num_samples=num_samples,
+                scheduler=scheduler,
+            ),
+            run_config=ray.train.RunConfig(
+                storage_path=os.path.abspath("./ray_results"), name=run_name
+            ),
+            param_space=config,
+        )
+        result = tuner.fit()
+
+        best_result = result.get_best_result()
+        print(f"Best trial config: {best_result.config}")
+        print(f"Best trial final metrics: {best_result.metrics}")
+    else:
+        start_training(CFG=CFG, run_name=run_name, config=dict())
