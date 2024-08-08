@@ -380,33 +380,22 @@ class ClipLossMultiLabel(nn.Module):
         matching_labels = self.get_matching_labels(labels_one_hot)
         # Invert the matching labels to get the dissimilarity matrix
         matching_labels = 1 - matching_labels
-        # Apply label smoothing to the dissimilarity matrix
-        matching_labels = matching_labels * (1 - self.CFG.label_smoothing) + (
-            self.CFG.label_smoothing / matching_labels.size(0)
+        # Change zeros to 0.1
+        matching_labels = torch.where(
+            matching_labels == 0, torch.full_like(matching_labels, 0.1), matching_labels
         )
 
-        # Create the adjusted targets using the normalized similarity matrix
-        # Note: The targets are normally class indices, but here we'll use a modified approach
         labels = torch.arange(
             logits_per_image.shape[0], device=device, dtype=torch.long
         )
 
-        # Compute the cross-entropy loss with the adjusted targets
+        # Compute the CLIP contrastive loss
         loss_image = F.cross_entropy(logits_per_image, labels, reduction="none")
         loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
 
         # Apply the matching labels as weights to the losses
         loss_image = loss_image * matching_labels[range(loss_image.size(0)), labels]
         loss_text = loss_text * matching_labels[range(loss_text.size(0)), labels]
-
-        # Apply class weights to the losses
-        if mode == "train":
-            class_weights = self.train_class_weights
-        else:
-            class_weights = self.valid_class_weights
-
-        loss_image = loss_image * class_weights[labels]
-        loss_text = loss_text * class_weights[labels]
 
         loss_image = loss_image.mean()
         loss_text = loss_text.mean()
