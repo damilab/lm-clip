@@ -268,6 +268,7 @@ class ClipLossMultiLabel(nn.Module):
         use_horovod=False,
     ):
         super().__init__()
+        self.CFG = CFG
         self.train_class_weights = train_class_weights
         self.valid_class_weights = valid_class_weights
 
@@ -377,25 +378,35 @@ class ClipLossMultiLabel(nn.Module):
         )
 
         similarity_target = self.get_similarity_target(labels_one_hot)
+        # Apply label smoothing to the similarity target
+        similarity_target = (
+            1 - 2 * self.CFG.label_smoothing
+        ) * similarity_target + self.CFG.label_smoothing
+
+        matching_labels = self.get_matching_labels(labels_one_hot)
 
         # Calculate the loss for the image and text features
         loss_image = F.binary_cross_entropy_with_logits(
-            logits_per_image, similarity_target
+            logits_per_image, similarity_target, reduction="none"
         )
         loss_text = F.binary_cross_entropy_with_logits(
-            logits_per_text, similarity_target
+            logits_per_text, similarity_target, reduction="none"
         )
 
-        # Calculate the classification loss
-        loss_classification = self.asl_function_classification(
-            dot_similarity, labels_one_hot
+        # Get class indices for the labels
+        labels = torch.arange(labels_one_hot.shape[0], device=device, dtype=torch.long)
+
+        # Apply the matching labels as weights to the losses
+        weighted_loss_image = (
+            loss_image * matching_labels[range(loss_image.size(0)), labels]
+        ).mean()
+        weighted_loss_text = (
+            loss_text * matching_labels[range(loss_text.size(0)), labels]
         ).mean()
 
         # Calculate the total loss
-        image_text_loss = (loss_image + loss_text) / 2
-        image_text_loss = image_text_loss.mean()
-
-        total_loss = (image_text_loss + loss_classification) / 2
+        total_loss = (weighted_loss_image + weighted_loss_text) / 2
+        total_loss = total_loss.mean()
 
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
