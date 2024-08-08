@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "train.py",
             "console": "integratedTerminal",
-            "args": "--config=configs/voc_mlt_vitb16_clip_multilabel_new13.py"
+            "args": "--config=configs/coco_mlt_vitb16_clip_dissimilarity_6.py"
         },
     ]
 }
