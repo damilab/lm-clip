@@ -527,14 +527,14 @@ if __name__ == "__main__":
 
         # Configure ray tune hyperparameter search space
         config = {
-            "batch_size": tune.choice([4, 8, 16]),
-            "asl_gamma_neg": tune.loguniform(2.0, 8.0),
+            # "batch_size": tune.choice([4, 8, 16]),
+            "asl_gamma_neg": tune.loguniform(2.0, 10.0),
             # "asl_gamma_pos": tune.loguniform(0),
-            "asl_clip": tune.loguniform(0.01, 0.1),
-            "asl_mul": tune.loguniform(6, 15.0),
-            "label_smoothing": tune.loguniform(0.005, 0.1),
-            "sample_weights_power": tune.loguniform(0.01, 2.0),
-            "class_weights_power": tune.loguniform(0.01, 2.0),
+            # "asl_clip": tune.loguniform(0.01, 0.1),
+            "asl_mul": tune.loguniform(0.1, 2.0),
+            # "label_smoothing": tune.loguniform(0.005, 0.1),
+            "sample_weights_power": tune.loguniform(1.0, 2.0),
+            "class_weights_power": tune.loguniform(1.0, 2.0),
             "CFG": CFG,
         }
 
