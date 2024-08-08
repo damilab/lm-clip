@@ -380,12 +380,12 @@ class ClipLossMultiLabel(nn.Module):
         similarity_matrix = self.get_similarity_target(labels_one_hot)
         # Invert the matching labels to get the dissimilarity matrix
         dissimilarity_matrix = 1 - similarity_matrix
-        # Change zeros to 0.1
-        dissimilarity_matrix = torch.where(
-            dissimilarity_matrix == 0,
-            torch.full_like(dissimilarity_matrix, 0.1),
-            dissimilarity_matrix,
-        )
+        # # Change zeros to 0.1
+        # dissimilarity_matrix = torch.where(
+        #     dissimilarity_matrix == 0,
+        #     torch.full_like(dissimilarity_matrix, 0.1),
+        #     dissimilarity_matrix,
+        # )
 
         labels = torch.arange(
             logits_per_image.shape[0], device=device, dtype=torch.long
@@ -395,14 +395,10 @@ class ClipLossMultiLabel(nn.Module):
         loss_image = F.cross_entropy(logits_per_image, labels, reduction="none")
         loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
 
-        # Apply the dissimilarity matrix to the loss as a mask
-        loss_image = loss_image * dissimilarity_matrix
-        loss_text = loss_text * dissimilarity_matrix
-
-        loss_image = loss_image.mean()
-        loss_text = loss_text.mean()
-
         total_loss = (loss_image + loss_text) / 2
+
+        # Apply the dissimilarity matrix to the loss as a mask
+        total_loss = total_loss * dissimilarity_matrix
 
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
