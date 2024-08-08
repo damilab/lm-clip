@@ -527,11 +527,11 @@ if __name__ == "__main__":
 
         # Configure ray tune hyperparameter search space
         config = {
-            # "batch_size": tune.choice([4, 8, 16]),
+            "batch_size": tune.choice([8, 16, 32, 64]),
             "asl_gamma_neg": tune.loguniform(2.0, 10.0),
             # "asl_gamma_pos": tune.loguniform(0),
             # "asl_clip": tune.loguniform(0.01, 0.1),
-            "asl_mul": tune.loguniform(0.1, 2.0),
+            "asl_mul": tune.loguniform(0.1, 10.0),
             # "label_smoothing": tune.loguniform(0.005, 0.1),
             "sample_weights_power": tune.loguniform(1.0, 2.0),
             "class_weights_power": tune.loguniform(1.0, 2.0),
@@ -540,7 +540,7 @@ if __name__ == "__main__":
 
         gpus_per_trial = 1
         cpus_per_trial = 4
-        num_samples = 50
+        num_samples = 100
         max_num_epochs = CFG.epochs
         scheduler = ASHAScheduler(
             max_t=max_num_epochs,

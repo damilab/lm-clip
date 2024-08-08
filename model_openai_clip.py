@@ -689,13 +689,13 @@ class OpenAICLIPModel(nn.Module):
         text_embeddings = self.model.encode_text(batch["caption"])
         label_embeddings = self.model.encode_text(encoded_labels)
 
-        image_embeddings = image_embeddings / image_embeddings.norm(
-            dim=-1, keepdim=True
-        )
-        text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
-        label_embeddings = label_embeddings / label_embeddings.norm(
-            dim=-1, keepdim=True
-        )
+        # image_embeddings = image_embeddings / image_embeddings.norm(
+        #     dim=-1, keepdim=True
+        # )
+        # text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
+        # label_embeddings = label_embeddings / label_embeddings.norm(
+        #     dim=-1, keepdim=True
+        # )
 
         label_one_hot = batch["label_one_hot"]
 

@@ -7,13 +7,13 @@ class CFG:
     # Is used for the label embeddings to predict classes. Also used as image captions if use_dataset_train_captions is False
     class_caption = "a photo of a "
     # Determines if the dataset natural language captions should be used during training
-    use_dataset_train_captions = True
+    use_dataset_train_captions = False
 
     # Controls which checkpoints are saved during training each epoch
     save_newest_checkpoint = False
     save_best_mAP_checkpoint = False
     save_best_tail_mAP_checkpoint = False
-    log_tensorboard = False
+    log_tensorboard = True
 
     # Controls image input size to the image encoder
     size = 224
