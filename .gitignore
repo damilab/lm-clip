@@ -3,9 +3,9 @@ dataset_loaders/voc_mlt/VOCdevkit
 dataset_loaders/**/*.tar
 dataset_loaders/**/*.zip
 __pycache__
-runs
 prompt_images
 data
 ray_results
+**/*.pt
 
 *.tar
