@@ -400,6 +400,8 @@ class ClipLossMultiLabel(nn.Module):
         # Apply the dissimilarity matrix to the loss as a mask
         total_loss = total_loss * dissimilarity_matrix
 
+        total_loss = total_loss.mean()
+
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
 
