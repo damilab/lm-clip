@@ -379,7 +379,11 @@ class ClipLossMultiLabel(nn.Module):
 
         matching_labels = self.get_matching_labels(labels_one_hot)
         # Invert the matching labels to get the dissimilarity matrix
-        dissimilarity = 1 - matching_labels
+        matching_labels = 1 - matching_labels
+        # Apply label smoothing to the dissimilarity matrix
+        matching_labels = matching_labels * (1 - self.CFG.label_smoothing) + (
+            self.CFG.label_smoothing / matching_labels.size(0)
+        )
 
         # Create the adjusted targets using the normalized similarity matrix
         # Note: The targets are normally class indices, but here we'll use a modified approach
@@ -392,14 +396,22 @@ class ClipLossMultiLabel(nn.Module):
         loss_text = F.cross_entropy(logits_per_text, labels, reduction="none")
 
         # Apply the matching labels as weights to the losses
-        weighted_loss_image = (
-            loss_image * matching_labels[range(loss_image.size(0)), labels]
-        ).mean()
-        weighted_loss_text = (
-            loss_text * matching_labels[range(loss_text.size(0)), labels]
-        ).mean()
+        loss_image = loss_image * matching_labels[range(loss_image.size(0)), labels]
+        loss_text = loss_text * matching_labels[range(loss_text.size(0)), labels]
 
-        total_loss = (weighted_loss_image + weighted_loss_text) / 2
+        # Apply class weights to the losses
+        if mode == "train":
+            class_weights = self.train_class_weights
+        else:
+            class_weights = self.valid_class_weights
+
+        loss_image = loss_image * class_weights[labels]
+        loss_text = loss_text * class_weights[labels]
+
+        loss_image = loss_image.mean()
+        loss_text = loss_text.mean()
+
+        total_loss = (loss_image + loss_text) / 2
 
         return {"contrastive_loss": total_loss} if output_dict else total_loss
 
