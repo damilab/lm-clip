@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import clip
-from asl_loss import AsymmetricLossOptimized
+from asl_loss import BalancedAsymmetricLossOptimized
 
 try:
     import torch.distributed.nn
@@ -272,7 +272,7 @@ class ClipLossMultiLabel(nn.Module):
         self.train_class_weights = train_class_weights
         self.valid_class_weights = valid_class_weights
 
-        self.asl_function = AsymmetricLossOptimized(
+        self.asl_function = BalancedAsymmetricLossOptimized(
             gamma_neg=CFG.asl_gamma_neg,
             gamma_pos=CFG.asl_gamma_pos,
             clip=CFG.asl_clip,
@@ -281,7 +281,7 @@ class ClipLossMultiLabel(nn.Module):
             label_smoothing=CFG.label_smoothing,
             return_mean=False,
         ).to(CFG.device)
-        self.asl_function_classification = AsymmetricLossOptimized(
+        self.asl_function_classification = BalancedAsymmetricLossOptimized(
             gamma_neg=CFG.asl_gamma_neg,
             gamma_pos=CFG.asl_gamma_pos,
             clip=CFG.asl_clip,
@@ -670,7 +670,7 @@ class OpenAICLIPModel(nn.Module):
                 self.loss_functions.append(
                     SigLipLossWrapper(logit_bias=config.siglip_logit_bias)
                 )
-            elif loss_function == "asl":
+            elif loss_function == "asl" or loss_function == "bal":
                 if asl_function_train is None or asl_function_valid is None:
                     raise ValueError(
                         "ASL loss function requires asl_function_train and asl_function_valid to be provided"
@@ -689,13 +689,13 @@ class OpenAICLIPModel(nn.Module):
         text_embeddings = self.model.encode_text(batch["caption"])
         label_embeddings = self.model.encode_text(encoded_labels)
 
-        # image_embeddings = image_embeddings / image_embeddings.norm(
-        #     dim=-1, keepdim=True
-        # )
-        # text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
-        # label_embeddings = label_embeddings / label_embeddings.norm(
-        #     dim=-1, keepdim=True
-        # )
+        image_embeddings = image_embeddings / image_embeddings.norm(
+            dim=-1, keepdim=True
+        )
+        text_embeddings = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
+        label_embeddings = label_embeddings / label_embeddings.norm(
+            dim=-1, keepdim=True
+        )
 
         label_one_hot = batch["label_one_hot"]
 

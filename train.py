@@ -5,7 +5,7 @@ import torch.nn as nn
 from tqdm import tqdm
 import json
 from torch.utils.tensorboard import SummaryWriter
-from asl_loss import AsymmetricLossOptimized
+from asl_loss import AsymmetricLossOptimized, BalancedAsymmetricLossOptimized
 from model_openai_clip import OpenAICLIPModel
 import numpy as np
 import dataset_loaders.voc_mlt as voc_mlt
@@ -284,34 +284,49 @@ def start_training(config, CFG, run_name):
     num_labels_train = train_loader.dataset.num_classes
     num_labels_valid = valid_loader.dataset.num_classes
 
-    asl_function_train = AsymmetricLossOptimized(
-        gamma_neg=CFG.asl_gamma_neg,
-        gamma_pos=CFG.asl_gamma_pos,
-        clip=CFG.asl_clip,
-        eps=CFG.asl_eps,
-        pos_weight=(
-            train_loader.dataset.class_weights.to(CFG.device)
-            if CFG.use_weighted_loss
-            else None
-        ),
-        num_labels=num_labels_train,
-        label_smoothing=CFG.label_smoothing,
-        return_mean=True,
-    ).to(CFG.device)
-    asl_function_valid = AsymmetricLossOptimized(
-        gamma_neg=CFG.asl_gamma_neg,
-        gamma_pos=CFG.asl_gamma_pos,
-        clip=CFG.asl_clip,
-        eps=CFG.asl_eps,
-        pos_weight=(
-            valid_loader.dataset.class_weights.to(CFG.device)
-            if CFG.use_weighted_loss
-            else None
-        ),
-        num_labels=num_labels_valid,
-        label_smoothing=CFG.label_smoothing,
-        return_mean=True,
-    ).to(CFG.device)
+    # if CFG.loss_function includes "bal"
+    if "bal" in CFG.loss_function:
+        asl_function_train = BalancedAsymmetricLossOptimized(
+            gamma_neg=CFG.asl_gamma_neg,
+            gamma_pos=CFG.asl_gamma_pos,
+            clip=CFG.asl_clip,
+            eps=CFG.asl_eps,
+            pos_weight=(
+                train_loader.dataset.class_weights.to(CFG.device)
+                if CFG.use_weighted_loss
+                else None
+            ),
+            num_labels=num_labels_train,
+            label_smoothing=CFG.label_smoothing,
+            return_mean=True,
+        ).to(CFG.device)
+        asl_function_valid = BalancedAsymmetricLossOptimized(
+            gamma_neg=CFG.asl_gamma_neg,
+            gamma_pos=CFG.asl_gamma_pos,
+            clip=CFG.asl_clip,
+            eps=CFG.asl_eps,
+            pos_weight=(
+                valid_loader.dataset.class_weights.to(CFG.device)
+                if CFG.use_weighted_loss
+                else None
+            ),
+            num_labels=num_labels_valid,
+            label_smoothing=CFG.label_smoothing,
+            return_mean=True,
+        ).to(CFG.device)
+    elif "asl" in CFG.loss_function:
+        asl_function_train = AsymmetricLossOptimized(
+            gamma_neg=CFG.asl_gamma_neg,
+            gamma_pos=CFG.asl_gamma_pos,
+            clip=CFG.asl_clip,
+            eps=CFG.asl_eps,
+        ).to(CFG.device)
+        asl_function_valid = AsymmetricLossOptimized(
+            gamma_neg=CFG.asl_gamma_neg,
+            gamma_pos=CFG.asl_gamma_pos,
+            clip=CFG.asl_clip,
+            eps=CFG.asl_eps,
+        ).to(CFG.device)
 
     model = OpenAICLIPModel(
         config=CFG,
@@ -457,33 +472,33 @@ def start_training(config, CFG, run_name):
             ray.train.report(metrics)
 
         # Save checkpoints
-        # if metrics["val"]["mAP"] > best_mAP:
-        #     best_mAP = metrics["val"]["mAP"]
-        #     if CFG.save_best_mAP_checkpoint:
-        #         save_checkpoint(
-        #             epoch,
-        #             model_state_dict,
-        #             optimizer,
-        #             metrics["train"]["loss"],
-        #             metrics["val"]["loss"],
-        #             best_mAP,
-        #             best_mAP_tail,
-        #             writer.log_dir + "/best_valid_mAP.pt",
-        #         )
+        if metrics["val"]["mAP"] > best_mAP:
+            best_mAP = metrics["val"]["mAP"]
+            if CFG.save_best_mAP_checkpoint:
+                save_checkpoint(
+                    epoch,
+                    model_state_dict,
+                    optimizer,
+                    metrics["train"]["loss"],
+                    metrics["val"]["loss"],
+                    best_mAP,
+                    best_mAP_tail,
+                    writer.log_dir + "/best_valid_mAP.pt",
+                )
 
-        # if metrics["val"]["mAP_tail"] and metrics["val"]["mAP_tail"] > best_mAP_tail:
-        #     best_mAP_tail = metrics["val"]["mAP_tail"]
-        #     if CFG.save_best_tail_mAP_checkpoint:
-        #         save_checkpoint(
-        #             epoch,
-        #             model_state_dict,
-        #             optimizer,
-        #             metrics["train"]["loss"],
-        #             metrics["val"]["loss"],
-        #             best_mAP,
-        #             best_mAP_tail,
-        #             writer.log_dir + "/best_valid_mAP_tail.pt",
-        #         )
+        if metrics["val"]["mAP_tail"] and metrics["val"]["mAP_tail"] > best_mAP_tail:
+            best_mAP_tail = metrics["val"]["mAP_tail"]
+            if CFG.save_best_tail_mAP_checkpoint:
+                save_checkpoint(
+                    epoch,
+                    model_state_dict,
+                    optimizer,
+                    metrics["train"]["loss"],
+                    metrics["val"]["loss"],
+                    best_mAP,
+                    best_mAP_tail,
+                    writer.log_dir + "/best_valid_mAP_tail.pt",
+                )
 
         if CFG.save_newest_checkpoint:
             save_checkpoint(
@@ -540,7 +555,7 @@ if __name__ == "__main__":
 
         gpus_per_trial = 1
         cpus_per_trial = 4
-        num_samples = 100
+        num_samples = 500
         max_num_epochs = CFG.epochs
         scheduler = ASHAScheduler(
             max_t=max_num_epochs,

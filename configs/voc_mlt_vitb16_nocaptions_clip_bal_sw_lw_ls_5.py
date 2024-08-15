@@ -11,9 +11,8 @@ class CFG:
 
     # Controls which checkpoints are saved during training each epoch
     save_newest_checkpoint = False
-    save_best_mAP_checkpoint = False
-    save_best_tail_mAP_checkpoint = False
-    log_tensorboard = True
+    save_best_mAP_checkpoint = True
+    save_best_tail_mAP_checkpoint = True
 
     # Controls image input size to the image encoder
     size = 224
@@ -24,33 +23,33 @@ class CFG:
     # Sets the max token length for the text encoder, CLIP uses 77
     max_length = 77
     # Batch size for training and validation
-    batch_size = 32
+    batch_size = 8
     # Number of workers for the dataloaders
     num_workers = 4
     # Number of epochs to train for, important for learning rate scheduling
     epochs = 50
 
-    # Determines which loss functions are used during training: A combination of "clip", "siglip", "asl"
+    # Determines which loss functions are used during training: A combination of "clip", "siglip", "bal"
     loss_function = [
         "clip",
-        "asl",
+        "bal",
     ]
     # Sets the λ factor for balancing ASL and CLIP loss functions
-    asl_mul = 1.0
+    asl_mul = 0.4
 
     # ASL loss function parameters
-    asl_gamma_neg = 4.0
+    asl_gamma_neg = 9.8
     asl_gamma_pos = 0.0
     asl_clip = 0.05
-    asl_eps = 1e-7
+    asl_eps = 1e-8
 
     # Configures oversampling of tail classes, s parameter in the paper, sample_weights_power and class_weights_power are set to the same value for simplicity
     use_sample_weights = True
-    sample_weights_power = 1.0
+    sample_weights_power = 1.4
 
     # Configures class weights for the loss function
     use_weighted_loss = True
-    class_weights_power = 1.0
+    class_weights_power = 1.4
 
     # Label smoothing for ASL loss
     label_smoothing = 0.1
@@ -58,7 +57,7 @@ class CFG:
     # Determines which optimizer to use: "AdamW", "Adam", or "SGD"
     optimizer = "AdamW"
     # Base learning rate for the optimizer
-    lr = 1e-6
+    lr = 0.25e-6
     # Momentum for the SGD optimizer
     momentum = 0.9
     # Weight decay for the optimizer

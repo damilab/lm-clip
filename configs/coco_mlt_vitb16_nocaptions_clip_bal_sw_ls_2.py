@@ -7,10 +7,10 @@ class CFG:
     # Is used for the label embeddings to predict classes. Also used as image captions if use_dataset_train_captions is False
     class_caption = "a photo of a "
     # Determines if the dataset natural language captions should be used during training
-    use_dataset_train_captions = True
+    use_dataset_train_captions = False
 
     # Controls which checkpoints are saved during training each epoch
-    save_newest_checkpoint = True
+    save_newest_checkpoint = False
     save_best_mAP_checkpoint = True
     save_best_tail_mAP_checkpoint = True
 
@@ -23,11 +23,11 @@ class CFG:
     # Sets the max token length for the text encoder, CLIP uses 77
     max_length = 77
     # Batch size for training and validation
-    batch_size = 32
+    batch_size = 8
     # Number of workers for the dataloaders
     num_workers = 4
     # Number of epochs to train for, important for learning rate scheduling
-    epochs = 500
+    epochs = 50
 
     # Determines which loss functions are used during training: A combination of "clip", "siglip", "bal"
     loss_function = [
@@ -35,10 +35,10 @@ class CFG:
         "bal",
     ]
     # Sets the λ factor for balancing ASL and CLIP loss functions
-    asl_mul = 6.0
+    asl_mul = 5
 
     # ASL loss function parameters
-    asl_gamma_neg = 4.0
+    asl_gamma_neg = 9.8
     asl_gamma_pos = 0.0
     asl_clip = 0.05
     asl_eps = 1e-8
@@ -48,7 +48,7 @@ class CFG:
     sample_weights_power = 1.6
 
     # Configures class weights for the loss function
-    use_weighted_loss = True
+    use_weighted_loss = False
     class_weights_power = 1.6
 
     # Label smoothing for ASL loss

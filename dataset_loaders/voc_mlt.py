@@ -245,8 +245,7 @@ class VOCMLTDataset(torch.utils.data.Dataset):
         if mode == "train" and self.use_data_augmentation:
             return transforms.Compose(
                 [
-                    transforms.Resize(self.image_size, interpolation=Image.BICUBIC),
-                    transforms.CenterCrop(self.image_size),
+                    transforms.Resize((self.image_size, self.image_size)),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
@@ -256,7 +255,6 @@ class VOCMLTDataset(torch.utils.data.Dataset):
             return transforms.Compose(
                 [
                     transforms.Resize((self.image_size, self.image_size)),
-                    transforms.CenterCrop(self.image_size),
                     transforms.ToTensor(),
                     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
                 ]

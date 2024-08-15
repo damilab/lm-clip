@@ -1,5 +1,6 @@
 import torch
 
+
 class CFG:
     # Dataset options: "coco_mlt", "voc_mlt"
     dataset = "coco_mlt"
@@ -28,10 +29,10 @@ class CFG:
     # Number of epochs to train for, important for learning rate scheduling
     epochs = 500
 
-    # Determines which loss functions are used during training: A combination of "clip", "siglip", "asl"
+    # Determines which loss functions are used during training: A combination of "clip", "siglip", "bal"
     loss_function = [
         "clip",
-        "asl",
+        "bal",
     ]
     # Sets the λ factor for balancing ASL and CLIP loss functions
     asl_mul = 6.0
