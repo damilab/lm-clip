@@ -248,7 +248,9 @@ class AsymmetricLossOptimized(nn.Module):
                 torch.set_grad_enabled(True)
             self.loss *= self.asymmetric_w
 
-        return -self.loss.sum()
+        # return -self.loss.sum()
+        # # Changing it to mean
+        return -self.loss.mean()
 
 
 class BalancedAsymmetricLossOptimized(nn.Module):

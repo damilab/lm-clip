@@ -185,6 +185,33 @@ def test(CFG, run_name, checkpoint_name, zeroshot):
         data_loader.dataset.tail_classes,
     )
 
+    # Calculate the average precision on only single-label samples
+    predictions_single = []
+    classes_one_hot_single = []
+    image_features_single = []
+    for i in range(len(classes_one_hot)):
+        if classes_one_hot[i].sum() == 1:
+            predictions_single.append(predictions[i])
+            classes_one_hot_single.append(classes_one_hot[i])
+            image_features_single.append(image_features[i])
+
+    (
+        mAP_single,
+        APs_single,
+        mAP_head_single,
+        mAP_middle_single,
+        mAP_tail_single,
+        AUROC_single,
+        AUROCs_single,
+    ) = evaluate_mlc(
+        predictions_single,
+        classes_one_hot_single,
+        data_loader.dataset.head_classes,
+        data_loader.dataset.middle_classes,
+        data_loader.dataset.tail_classes,
+        calculate_auroc=False,
+    )
+
     image_features_cpu = image_features.cpu()
 
     # Calculate centroids of all classes
@@ -433,10 +460,117 @@ def test(CFG, run_name, checkpoint_name, zeroshot):
     print("mAP middle: {:.4f}".format(mAP_middle))
     print("mAP tail: {:.4f}".format(mAP_tail))
     print()
+    print("mAP single: {:.4f}".format(mAP_single))
+    print("mAP head single: {:.4f}".format(mAP_head_single))
+    print("mAP middle single: {:.4f}".format(mAP_middle_single))
+    print("mAP tail single: {:.4f}".format(mAP_tail_single))
+    print()
     print("mAP multi: {:.4f}".format(mAP_multi))
     print("mAP head multi: {:.4f}".format(mAP_head_multi))
     print("mAP middle multi: {:.4f}".format(mAP_middle_multi))
     print("mAP tail multi: {:.4f}".format(mAP_tail_multi))
+
+    from sklearn.manifold import TSNE
+    import time
+    import torch
+
+    # Generate features of all images and their captions
+    all_classes = np.arange(num_labels)
+
+    # cat dog [7, 11]
+    # cow horse sheep [9, 12, 16]
+    classes_to_sample = [11, 12, 14]
+    # classes_to_sample = all_classes
+    classes_not_to_sample = np.setdiff1d(all_classes, classes_to_sample)
+    STRICT_CLASS_FILTER = True
+
+    features = image_features
+
+    start = time.time()
+    perplexity = min(len(features) - 1, 30)
+    tsne = TSNE(n_components=2, random_state=0, perplexity=perplexity)
+    projections = tsne.fit_transform(features.cpu())
+    end = time.time()
+    print(f"generating projections with T-SNE took: {(end - start):.2f} seconds")
+
+    COLOR_TO_SHOW = "class"  # "class" or "AP"
+    CFG.prediction_threshold = 0.25
+
+    try:
+        classes_one_hot = classes_one_hot.cpu().numpy()
+        predictions = predictions.cpu().numpy()
+    except AttributeError:
+        pass
+
+    predictions_one_hot = (predictions > CFG.prediction_threshold).astype(int)
+
+    # Calculate colors for the classes based on HSV
+    class_hues = []
+    index = 0
+    for i in range(len(data_loader.dataset.label_strings)):
+        class_hues.append(index / len(classes_to_sample) * 330)
+        if i in classes_to_sample:
+            index += 1
+
+    mAP, _ = eval_map(predictions, classes_one_hot)
+    APs = []
+    for i in range(len(classes_one_hot)):
+        preds = predictions[i]
+        labels = classes_one_hot[i]
+
+        AP, _ = eval_map(preds, labels)
+        APs.append(AP)
+
+    # Add classes and (head, middle, tail) to the image_labels
+    projection_labels = []
+    for i in range(len(classes_one_hot)):
+        classes_text = []
+        for j in range(len(classes_one_hot[i])):
+            if classes_one_hot[i][j] == 1:
+                class_split_text = ""
+                if j in data_loader.dataset.head_classes:
+                    class_split_text = "HEAD"
+                elif j in data_loader.dataset.middle_classes:
+                    class_split_text = "MIDDLE"
+                elif j in data_loader.dataset.tail_classes:
+                    class_split_text = "TAIL"
+                classes_text.append(
+                    data_loader.dataset.classes[j]["name"]
+                    + "("
+                    + class_split_text
+                    + ")"
+                )
+        projection_labels.append(",".join(classes_text))
+
+    projection_prediction_texts = []
+    for i in range(len(predictions_one_hot)):
+        classes_text = []
+        for j in range(len(predictions_one_hot[i])):
+            if predictions_one_hot[i][j] == 1:
+                classes_text.append(data_loader.dataset.classes[j]["name"])
+        projection_prediction_texts.append(",".join(classes_text))
+
+    projections_final = projections
+
+    import pandas as pd
+
+    projections_df = pd.DataFrame(projections_final, columns=["x", "y"])
+    projections_df["labels"] = projection_labels
+    projections_df["predictions"] = projection_prediction_texts
+
+    # Write dataframe to csv
+    projections_df.to_csv(
+        "../runs/"
+        + run_name
+        + "/"
+        + run_name
+        + "_on"
+        + CFG.dataset
+        + "_"
+        + DATA_SPLIT
+        + ".csv",
+        index=False,
+    )
 
 
 if __name__ == "__main__":

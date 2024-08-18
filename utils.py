@@ -51,7 +51,14 @@ def evaluate_slc(predict_p, gt_labels):
     return top1, top1error
 
 
-def evaluate_mlc(predict_p, gt_labels, head_classes, middle_classes, tail_classes):
+def evaluate_mlc(
+    predict_p,
+    gt_labels,
+    head_classes,
+    middle_classes,
+    tail_classes,
+    calculate_auroc=True,
+):
     mAP, APs = eval_map(predict_p, gt_labels)
     if head_classes is not None:
         mAP_head = eval_map_subset(predict_p, gt_labels, head_classes)
@@ -65,7 +72,11 @@ def evaluate_mlc(predict_p, gt_labels, head_classes, middle_classes, tail_classe
         mAP_tail = eval_map_subset(predict_p, gt_labels, tail_classes)
     else:
         mAP_tail = None
-    AUROC, AUROCs = eval_auroc(predict_p, gt_labels)
+
+    if calculate_auroc:
+        AUROC, AUROCs = eval_auroc(predict_p, gt_labels)
+    else:
+        AUROC, AUROCs = None, None
 
     return mAP, APs, mAP_head, mAP_middle, mAP_tail, AUROC, AUROCs
 

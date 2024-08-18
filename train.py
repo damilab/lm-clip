@@ -327,6 +327,9 @@ def start_training(config, CFG, run_name):
             clip=CFG.asl_clip,
             eps=CFG.asl_eps,
         ).to(CFG.device)
+    else:
+        asl_function_train = None
+        asl_function_valid = None
 
     model = OpenAICLIPModel(
         config=CFG,
