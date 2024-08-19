@@ -472,54 +472,18 @@ def test(CFG, run_name, checkpoint_name, zeroshot):
 
     from sklearn.manifold import TSNE
     import time
-    import torch
-
-    # Generate features of all images and their captions
-    all_classes = np.arange(num_labels)
-
-    # cat dog [7, 11]
-    # cow horse sheep [9, 12, 16]
-    classes_to_sample = [11, 12, 14]
-    # classes_to_sample = all_classes
-    classes_not_to_sample = np.setdiff1d(all_classes, classes_to_sample)
-    STRICT_CLASS_FILTER = True
-
-    features = image_features
 
     start = time.time()
-    perplexity = min(len(features) - 1, 30)
+    perplexity = min(len(image_features) - 1, 30)
     tsne = TSNE(n_components=2, random_state=0, perplexity=perplexity)
-    projections = tsne.fit_transform(features.cpu())
+    projections = tsne.fit_transform(image_features.cpu())
     end = time.time()
     print(f"generating projections with T-SNE took: {(end - start):.2f} seconds")
 
     COLOR_TO_SHOW = "class"  # "class" or "AP"
     CFG.prediction_threshold = 0.25
 
-    try:
-        classes_one_hot = classes_one_hot.cpu().numpy()
-        predictions = predictions.cpu().numpy()
-    except AttributeError:
-        pass
-
     predictions_one_hot = (predictions > CFG.prediction_threshold).astype(int)
-
-    # Calculate colors for the classes based on HSV
-    class_hues = []
-    index = 0
-    for i in range(len(data_loader.dataset.label_strings)):
-        class_hues.append(index / len(classes_to_sample) * 330)
-        if i in classes_to_sample:
-            index += 1
-
-    mAP, _ = eval_map(predictions, classes_one_hot)
-    APs = []
-    for i in range(len(classes_one_hot)):
-        preds = predictions[i]
-        labels = classes_one_hot[i]
-
-        AP, _ = eval_map(preds, labels)
-        APs.append(AP)
 
     # Add classes and (head, middle, tail) to the image_labels
     projection_labels = []
@@ -556,11 +520,11 @@ def test(CFG, run_name, checkpoint_name, zeroshot):
 
     projections_df = pd.DataFrame(projections_final, columns=["x", "y"])
     projections_df["labels"] = projection_labels
-    projections_df["predictions"] = projection_prediction_texts
+    # projections_df["predictions"] = projection_prediction_texts
 
     # Write dataframe to csv
     projections_df.to_csv(
-        "../runs/"
+        "runs/"
         + run_name
         + "/"
         + run_name

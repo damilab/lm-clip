@@ -45,11 +45,11 @@ class CFG:
 
     # Configures oversampling of tail classes, s parameter in the paper, sample_weights_power and class_weights_power are set to the same value for simplicity
     use_sample_weights = True
-    sample_weights_power = 1.35
+    sample_weights_power = 1.175
 
     # Configures class weights for the loss function
     use_weighted_loss = True
-    class_weights_power = 1.35
+    class_weights_power = 1.175
 
     # Label smoothing for ASL loss
     label_smoothing = 0.1
