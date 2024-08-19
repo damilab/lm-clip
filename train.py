@@ -10,7 +10,6 @@ from model_openai_clip import OpenAICLIPModel
 import numpy as np
 import dataset_loaders.voc_mlt as voc_mlt
 import dataset_loaders.coco_mlt as coco_mlt
-import dataset_loaders.cifar_100_lt as cifar_100_lt
 import os
 import clip
 from ray import tune
@@ -258,32 +257,9 @@ def start_training(config, CFG, run_name):
             caption_max_length=CFG.max_length,
             use_sample_weights=False,
         )
-    elif CFG.dataset == "cifar_100_lt_r100":
-        train_loader = cifar_100_lt.build_loaders(
-            mode="train",
-            image_size=CFG.size,
-            batch_size=CFG.batch_size,
-            num_workers=CFG.num_workers,
-            class_caption=CFG.class_caption,
-            use_dataset_train_captions=CFG.use_dataset_train_captions,
-            imbalance_factor="r-100",
-            use_sample_weights=CFG.use_sample_weights,
-            sample_weights_power=CFG.sample_weights_power,
-            class_weights_power=CFG.class_weights_power,
-        )
-        valid_loader = cifar_100_lt.build_loaders(
-            mode="valid",
-            image_size=CFG.size,
-            batch_size=CFG.batch_size,
-            num_workers=CFG.num_workers,
-            class_caption=CFG.class_caption,
-            use_dataset_train_captions=CFG.use_dataset_train_captions,
-            imbalance_factor="r-100",
-            use_sample_weights=False,
-        )
     else:
         raise ValueError(
-            "Only voc_mlt, coco_mlt and cifar_100_lt are supported as datasets"
+            "Only voc_mlt and coco_mlt are supported as datasets"
         )
 
     num_labels_train = train_loader.dataset.num_classes
