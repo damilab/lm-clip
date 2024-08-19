@@ -1,4 +1,4 @@
-name: tailclip
+name: lm-clip
 channels:
   - pytorch
   - nvidia
