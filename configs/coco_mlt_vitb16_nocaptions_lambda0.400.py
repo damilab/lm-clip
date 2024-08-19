@@ -11,8 +11,8 @@ class CFG:
 
     # Controls which checkpoints are saved during training each epoch
     save_newest_checkpoint = False
-    save_best_mAP_checkpoint = True
-    save_best_tail_mAP_checkpoint = True
+    save_best_mAP_checkpoint = False
+    save_best_tail_mAP_checkpoint = False
 
     # Controls image input size to the image encoder
     size = 224
