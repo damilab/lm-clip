@@ -32,15 +32,17 @@ def train_epoch(
 ):
     loss_meter = AvgMeter()
 
+    # Initialize lists to store ground truth labels and predicted probabilities, softmax is applied to the predictions
     gt_labels = []
     predict_p = []
     sf = nn.Softmax(dim=1)
 
+    # Loop through the training data batches
     tqdm_object = tqdm(train_loader, total=len(train_loader))
     for batch in tqdm_object:
         batch = {k: v.to(CFG.device) for k, v in batch.items()}
 
-        # Calculate train loss
+        # Encode images, captions and labels, and calculate the loss
         loss_mean, preds = model(batch, encoded_labels=encoded_labels, mode="train")
 
         label_one_hot_int = batch["label_one_hot"].to(torch.int64)
@@ -107,6 +109,7 @@ def valid_epoch(
 ):
     loss_meter = AvgMeter()
 
+    # Initialize lists to store ground truth labels and predicted probabilities, softmax is applied to the predictions
     gt_labels = []
     predict_p = []
     sf = nn.Softmax(dim=1)
@@ -115,7 +118,7 @@ def valid_epoch(
     for batch in tqdm_object:
         batch = {k: v.to(CFG.device) for k, v in batch.items()}
 
-        # Calculate valid loss
+        # Encode images, captions and labels, and calculate the loss
         loss_mean, preds = model(batch, encoded_labels=encoded_labels, mode="valid")
 
         label_one_hot_int = batch["label_one_hot"].to(torch.int64)
@@ -202,9 +205,11 @@ def start_training(config, CFG, run_name):
 
     print(CFG)
 
+    # Load CLIP model
     model, image_preprocessor = clip.load(CFG.model_name, device=CFG.device, jit=False)
     model = model.float()
 
+    # Load dataset
     if CFG.dataset == "voc_mlt":
         train_loader = voc_mlt.build_loaders(
             root="dataset_loaders/voc_mlt",
@@ -284,7 +289,7 @@ def start_training(config, CFG, run_name):
     num_labels_train = train_loader.dataset.num_classes
     num_labels_valid = valid_loader.dataset.num_classes
 
-    # if CFG.loss_function includes "bal"
+    # Set up ASL/BAL loss function with class weights and label smoothing
     if "bal" in CFG.loss_function:
         asl_function_train = BalancedAsymmetricLossOptimized(
             gamma_neg=CFG.asl_gamma_neg,
@@ -331,6 +336,7 @@ def start_training(config, CFG, run_name):
         asl_function_train = None
         asl_function_valid = None
 
+    # Initialize the model
     model = OpenAICLIPModel(
         config=CFG,
         clip_model=model,
@@ -348,6 +354,7 @@ def start_training(config, CFG, run_name):
         asl_function_valid=asl_function_valid,
     ).to(CFG.device)
 
+    # Set up optimizer
     if CFG.optimizer == "AdamW":
         optimizer = torch.optim.AdamW(
             model.parameters(),
@@ -381,7 +388,7 @@ def start_training(config, CFG, run_name):
     # Load from checkpoint to continue training
     print(f"Run Name: {run_name}")
 
-    #  Check if folder exists
+    # Check if folder exists
     if os.path.exists(
         os.path.join("runs", run_name, "best_valid_average_precision.pt")
     ):
@@ -434,6 +441,7 @@ def start_training(config, CFG, run_name):
     if not CFG.ray:
         writer.add_text("config", config_json, 0)
 
+    # Loop through the epochs
     for epoch in range(start_epoch, CFG.epochs):
         print(f"Epoch: {epoch + 1}")
         model.train()

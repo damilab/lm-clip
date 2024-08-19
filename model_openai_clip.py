@@ -685,10 +685,12 @@ class OpenAICLIPModel(nn.Module):
                 raise ValueError(f"Unknown loss function: {loss_function}")
 
     def forward(self, batch, encoded_labels, mode):
+        # Encode images, captions, and labels into the same embedding space
         image_embeddings = self.model.encode_image(batch["image"])
         text_embeddings = self.model.encode_text(batch["caption"])
         label_embeddings = self.model.encode_text(encoded_labels)
 
+        # Normalize embeddings for cosine similarity
         image_embeddings = image_embeddings / image_embeddings.norm(
             dim=-1, keepdim=True
         )
@@ -699,9 +701,11 @@ class OpenAICLIPModel(nn.Module):
 
         label_one_hot = batch["label_one_hot"]
 
+        # Calculate dot similarity between image and label embeddings
         logit_scale = self.model.logit_scale.exp()
         dot_similarity = logit_scale * image_embeddings @ label_embeddings.T
 
+        # Apply loss functions
         loss = 0
         for loss_function in self.loss_functions:
             loss = loss + loss_function(
