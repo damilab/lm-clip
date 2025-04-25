@@ -1,4 +1,4 @@
-# LM-CLIP
+# LM-CLIP [[Paper]](https://doi.org/10.1109/ACCESS.2025.3561581)
 
 ## Introduction
 This repository contains the code required to reproduce the results in our paper **LM-CLIP: Adapting Positive Asymmetric Loss for Long-Tailed Multi-Label Classification**.
@@ -24,10 +24,8 @@ The dataset splits and labels are included in this repository. However, the imag
 
 To use VOC-MLT, run the following commands (on Linux):
 ```console
-cd datasets/voc_mlt
-chmod +x ./download_voc_mlt.sh
-./download_voc_mlt.sh
-cd ../..
+chmod +x datasets/voc_mlt/download_voc_mlt.sh
+./datasets/voc_mlt/download_voc_mlt.sh
 ```
 This will download the required images.
 
@@ -35,10 +33,8 @@ This will download the required images.
 
 To use COCO-MLT, run the following commands (on Linux):
 ```console
-cd datasets/coco_mlt
-chmod +x ./download_coco_mlt.sh
-./download_coco_mlt.sh
-cd ../..
+chmod +x datasets/coco_mlt/download_coco_mlt.sh
+./datasets/coco_mlt/download_coco_mlt.sh
 ```
 This will download the required images.
 
@@ -46,13 +42,16 @@ This will download the required images.
 
 ### Training
 To train LM-CLIP, run `train.py` with a `--config` argument pointing to a config .py file.
-We included our hyperparameter configs for VOC-MLT and COCO-MLT with ViT-B/16 and RN-50 image encoder backbones.
+We included our hyperparameter configs for VOC-MLT and COCO-MLT with RN-50, ViT-B/16, and ViT-L/14 image encoder backbones.
 
 ```console
 python train.py --config=configs/voc_mlt_rn50.py
 python train.py --config=configs/voc_mlt_vitb16.py
+python train.py --config=configs/voc_mlt_vitl14.py
+
 python train.py --config=configs/coco_mlt_rn50.py
 python train.py --config=configs/coco_mlt_vitb16.py
+python train.py --config=configs/coco_mlt_vitl14.py
 ```
 TensorBoard events and model checkpoints will be saved to `runs/`.
 Checkpoints `best_valid_mAP.pt` and `best_valid_mAP_tail.pt` will be saved by default.
@@ -65,18 +64,24 @@ To only load pre-trained CLIP, use `--zeroshot=True`.
 ```console
 python test.py --config=configs/voc_mlt_rn50.py
 python test.py --config=configs/voc_mlt_vitb16.py
+python test.py --config=configs/voc_mlt_vitl14.py
 python test.py --config=configs/coco_mlt_rn50.py
 python test.py --config=configs/coco_mlt_vitb16.py
+python test.py --config=configs/coco_mlt_vitl14.py
 
 python test.py --config=configs/voc_mlt_rn50.py --checkpoint=best_valid_mAP_tail.pt
 python test.py --config=configs/voc_mlt_vitb16.py --checkpoint=best_valid_mAP_tail.pt
+python test.py --config=configs/voc_mlt_vitl14.py --checkpoint=best_valid_mAP_tail.pt
 python test.py --config=configs/coco_mlt_rn50.py --checkpoint=best_valid_mAP_tail.pt
 python test.py --config=configs/coco_mlt_vitb16.py --checkpoint=best_valid_mAP_tail.pt
+python test.py --config=configs/coco_mlt_vitl14.py --checkpoint=best_valid_mAP_tail.pt
 
 python test.py --config=configs/voc_mlt_rn50.py --zeroshot=True
 python test.py --config=configs/voc_mlt_vitb16.py --zeroshot=True
+python test.py --config=configs/voc_mlt_vitl14.py --zeroshot=True
 python test.py --config=configs/coco_mlt_rn50.py --zeroshot=True
 python test.py --config=configs/coco_mlt_vitb16.py --zeroshot=True
+python test.py --config=configs/coco_mlt_vitl14.py --zeroshot=True
 ```
 
 ## Acknowledgements
