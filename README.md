@@ -84,6 +84,22 @@ python test.py --config=configs/coco_mlt_vitb16.py --zeroshot=True
 python test.py --config=configs/coco_mlt_vitl14.py --zeroshot=True
 ```
 
+## BibTeX Citation
+Please cite LM-CLIP if it helps your research:
+```bibtex
+@ARTICLE{timmermann2025lm,
+  author={Timmermann, Christoph and Jung, Seunghyeon and Kim, Miso and Lee, Woojin},
+  journal={IEEE Access}, 
+  title={LM-CLIP: Adapting Positive Asymmetric Loss for Long-Tailed Multi-Label Classification}, 
+  year={2025},
+  volume={13},
+  number={},
+  pages={71053-71065},
+  keywords={Heavily-tailed distribution;Head;Tail;Multi label classification;Training;Visualization;Adaptation models;Focusing;Tuning;Optimization;Long-tailed learning;multi-label classification;CLIP;vision-language models;contrastive learning;class imbalance;loss functions;asymmetric loss;balanced asymmetric loss;imbalanced sampling},
+  doi={10.1109/ACCESS.2025.3561581}
+}
+```
+
 ## Acknowledgements
 
 We use code from [CLIP](https://github.com/openai/CLIP), [OpenCLIP](https://github.com/mlfoundations/open_clip), [ASL](https://github.com/Alibaba-MIIL/ASL), and [LMPT](https://github.com/richard-peng-xia/LMPT). We thank the authors for releasing their code.
