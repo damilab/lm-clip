@@ -24,8 +24,10 @@ The dataset splits and labels are included in this repository. However, the imag
 
 To use VOC-MLT, run the following commands (on Linux):
 ```console
-chmod +x datasets/voc_mlt/download_voc_mlt.sh
-./datasets/voc_mlt/download_voc_mlt.sh
+cd dataset_loaders/voc_mlt
+chmod +x ./download_voc_mlt.sh
+./download_voc_mlt.sh
+cd ../..
 ```
 This will download the required images.
 
@@ -33,8 +35,10 @@ This will download the required images.
 
 To use COCO-MLT, run the following commands (on Linux):
 ```console
-chmod +x datasets/coco_mlt/download_coco_mlt.sh
-./datasets/coco_mlt/download_coco_mlt.sh
+cd dataset_loaders/coco_mlt
+chmod +x ./download_coco_mlt.sh
+./download_coco_mlt.sh
+cd ../..
 ```
 This will download the required images.
 
