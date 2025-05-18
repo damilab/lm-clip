@@ -1,4 +1,4 @@
-# LM-CLIP [![Paper](https://img.shields.io/badge/paper-ACCESS.2025.3561581-blue?logo=ieee&color=00629B)](doi.org%2F10.1109%2FACCESS.2025.3561581) [![Python 3.12.3](https://img.shields.io/badge/python-3.12.3-blue.svg)](https://www.python.org/downloads/release/python-3123/) [![PyTorch](https://img.shields.io/badge/PyTorch_2.3.1-grey.svg?logo=PyTorch)](https://pytorch.org/get-started/previous-versions/) [![CC BY 4.0][cc-by-shield]][cc-by]
+# LM-CLIP [![Paper](https://img.shields.io/badge/paper-ACCESS.2025.3561581-blue?logo=ieee&color=00629B)](https://doi.org/10.1109/ACCESS.2025.3561581) [![Python 3.12.3](https://img.shields.io/badge/python-3.12.3-blue.svg)](https://www.python.org/downloads/release/python-3123/) [![PyTorch](https://img.shields.io/badge/PyTorch_2.3.1-grey.svg?logo=PyTorch)](https://pytorch.org/get-started/previous-versions/) [![CC BY 4.0][cc-by-shield]][cc-by]
 
 ## Introduction
 This repository contains the code required to reproduce the results in our paper **LM-CLIP: Adapting Positive Asymmetric Loss for Long-Tailed Multi-Label Classification**.
